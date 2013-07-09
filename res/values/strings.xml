@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Andro11C</string>
+    <string name="app_desc">HP-11C emulator for Android</string>
+    <string name="app_about">Andro11C version @@\n&#169; 2011 Elvis Pfützenreuter\nhttp://epx.com.br</string>
+</resources>
