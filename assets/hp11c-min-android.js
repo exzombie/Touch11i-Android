@@ -5038,12 +5038,19 @@ Hp12c_pgrm.prototype.p_exec_handle_special = function (op)
 Hp12c_pgrm.prototype.find_label = function (label)
 {
 	var template = Hp12c_pgrm.p_encode_instruction(H.LBL, label, 0);
+	var i;
 
-	for (var i = 1; i <= H.machine.program_limit(); ++i) {
+	for (i = H.machine.ip + 1; i <= H.machine.program_limit(); ++i) {
 		if (H.machine.ram[i] == template) {
 			return i;
 		}
 	}
+	for (i = 1; i <= H.machine.ip; ++i) {
+		if (H.machine.ram[i] == template) {
+			return i;
+		}
+	}
+
 
 	return 0;
 };
