@@ -25,6 +25,11 @@ H.disp_key_dist_y = (364.0 - 151.0) / 3;
 
 "use strict";
 
+H.getElem = function (id)
+{
+	return document.getElementById(id);
+};
+
 H.badnumber = function (res)
 {
 	return (isNaN(res) || ! isFinite(res));
@@ -57,9 +62,14 @@ H.zeropad = function (s, n)
 	return s;
 };
 
-H.i18n = function (s, comma, dp0)
+H.i18n = function (s, comma, dp0, grouping)
 {
 	// dp0 means: add decimal point after a whole number
+
+	if (! grouping) {
+		grouping = 3;
+	}
+
 	var dpos = s.indexOf('.');
 
 	if (dpos == -1 && dp0) {
@@ -78,7 +88,12 @@ H.i18n = function (s, comma, dp0)
 
 	var ts = comma ? "." : ",";
 
-	for (var e = dpos - 3; e > 0 + ((s.charAt(0) == '-' || s.charAt(0) == " ") ? 1 : 0); e -= 3) {
+	var dstop = 0;
+	while (dstop < s.length && isNaN(parseInt(s.charAt(dstop), 16))) {
+		++dstop;
+	}
+
+	for (var e = dpos - grouping; e > dstop; e -= grouping) {
 		s = s.slice(0, e) + ts + s.slice(e);
 	}
 
@@ -191,6 +206,7 @@ H.date_to_show = function (dd, dmy)
 	return H.date_gen(dd, dmy).toFixed(6) + "  " + dow;
 };
 
+/* Some browsers don't have console.log */
 if (! window.console) {
 	window.console = {};
 }
@@ -200,10 +216,14 @@ if (! window.console.log) {
 }
 
 H.type_cookie = 'hp12c';
-if (H.type == "12c-platinum") {
+if (H.type === "12c-platinum") {
 	H.type_cookie = 'hp12cpl';
-} else if (H.type == "11c") {
+} else if (H.type === "11c") {
 	H.type_cookie = 'hp11c';
+} else if (H.type === "15c") {
+	H.type_cookie = 'hp15c';
+} else if (H.type === "16c") {
+	H.type_cookie = 'hp16c';
 }
 
 H.INTERACTIVE = 0;
@@ -226,7 +246,7 @@ H.STAT_Y  = 4;
 H.STAT_Y2 = 5;
 H.STAT_XY = 6;
 
-if (H.type == "11c") {
+if (H.type === "11c" || H.type === "15c") {
 	H.STAT_N  = 0;
 	H.STAT_X  = 1;
 	H.STAT_X2 = 2;
@@ -243,10 +263,47 @@ H.TRIGO_DEG = 0;
 H.TRIGO_RAD = 1;
 H.TRIGO_GRAD = 2;
 
-// 11C
+// 11C, 15C
 H.NOTATION_FIX = 0;
 H.NOTATION_SCI = 1;
 H.NOTATION_ENG = 2;
+
+// 16C
+H.NOTATION_INT = 10; // just for comparisons
+H.NOTATION_INT_DEC = H.NOTATION_INT + 1;
+H.NOTATION_INT_HEX = H.NOTATION_INT + 2;
+H.NOTATION_INT_OCT = H.NOTATION_INT + 3;
+H.NOTATION_INT_BIN = H.NOTATION_INT + 4;
+
+H.DEFAULT_WORDSIZE = 16;
+
+H.win_digits = [];
+H.win_digits[H.NOTATION_INT_HEX] = 8;
+H.win_digits[H.NOTATION_INT_OCT] = 8;
+H.win_digits[H.NOTATION_INT_DEC] = 8; // or 10?
+H.win_digits[H.NOTATION_INT_BIN] = 8;
+
+H.digit_bits = [];
+H.digit_bits[H.NOTATION_INT_HEX] = 4;
+H.digit_bits[H.NOTATION_INT_OCT] = 3;
+H.digit_bits[H.NOTATION_INT_DEC] = Math.log(10) / Math.log(2); // ~3.32 bits
+H.digit_bits[H.NOTATION_INT_BIN] = 1;
+
+H.radix = [];
+H.radix[H.NOTATION_INT_HEX] = 16;
+H.radix[H.NOTATION_INT_OCT] = 8;
+H.radix[H.NOTATION_INT_BIN] = 2;
+H.radix[H.NOTATION_INT_DEC] = 10;
+// just to simplify some functions that query radix
+H.radix[H.NOTATION_FIX] = 10;
+H.radix[H.NOTATION_SCI] = 10;
+H.radix[H.NOTATION_ENG] = 10;
+
+H.radix_suffix = [];
+H.radix_suffix[H.NOTATION_INT_HEX] = "h";
+H.radix_suffix[H.NOTATION_INT_OCT] = "o";
+H.radix_suffix[H.NOTATION_INT_DEC] = "d";
+H.radix_suffix[H.NOTATION_INT_BIN] = "b";
 
 H.value_max = 9.999999 * Math.pow(10, 99);
 H.value_min = Math.pow(10, -99);
@@ -259,12 +316,22 @@ H.STOP_INSTRUCTION_IS_INVALID = false;
 H.INSTRUCTION_SIZE = 2;
 H.INSTRUCTION_MAX = 100;
 
-if (H.type == "12c-platinum") {
+if (H.type === "12c-platinum") {
 	H.ram_MAX = 400;
 	H.ram_ADDR_SIZE = 3;
 	H.STOP_INSTRUCTION = "43.33.000";
-} else if (H.type == "11c") {
+} else if (H.type === "11c") {
 	H.ram_MAX = 203;
+	H.ram_ADDR_SIZE = 3;
+	H.STOP_INSTRUCTION = "50";
+	H.STOP_INSTRUCTION_IS_INVALID = true;
+} else if (H.type === "16c") {
+	H.ram_MAX = 203;
+	H.ram_ADDR_SIZE = 3;
+	H.STOP_INSTRUCTION = "50";
+	H.STOP_INSTRUCTION_IS_INVALID = true;
+} else if (H.type === "15c") {
+	H.ram_MAX = 322;
 	H.ram_ADDR_SIZE = 3;
 	H.STOP_INSTRUCTION = "50";
 	H.STOP_INSTRUCTION_IS_INVALID = true;
@@ -274,8 +341,25 @@ H.MEM_MAX = 20;
 
 if (H.type == "12c-platinum") {
 	H.MEM_MAX = 30;
+} else if (H.type == "16c") {
+	H.MEM_MAX = 100;
 }
 
+H.FLAGS_MAX = 2;
+
+if (H.type === "16c") {
+	H.FLAGS_MAX = 6;
+} else if (H.type === "15c") {
+	// FIXM15 15c?
+	H.FLAGS_MAX = 10;
+}
+
+// 16C flags
+H.FLAG_ZEROS = 3;
+H.FLAG_CARRY = 4;
+H.FLAG_OVERFLOW = 5;
+
+// ############### Errors
 H.ERROR_DIVZERO = 0;
 H.ERROR_OVERFLOW = 1;
 H.ERROR_STAT = 2;
@@ -292,6 +376,47 @@ H.ERROR_INTEREST = 5;
 H.ERROR_MEMORY = 6;
 H.ERROR_IRR2 = 7;
 H.ERROR_DATE = 8;
+
+// 16C
+H.ERROR_IMPROPER_N = 1;
+H.ERROR_IMPROPER_BIT = 2;
+// H.ERROR_INDEX = 3; // STO register number invalid, same as 11C
+// H.ERROR_IP = 4; // same as 11C, 12C
+// H.ERROR_RTN = 5 // same as 11C (GOSUB-related error)
+H.ERROR_NUMBERFORMAT = 6; // 16C-exclusive, floating point x integer number format
+H.ERROR_DEFECTIVE = 9; // hopefully will never happen in this machine :)
+
+// FIXM15 15C errors
+
+H.make_closure = function (fname, args, asm)
+{
+	var f = function () {
+		H.machine[fname].apply(H.machine, args);
+	};
+
+	f.closure_type = "machine";
+	f.closure_name = fname;
+	f.reducible = false;
+	f.no_pgrm = 0;
+	f.asm = asm;
+
+	return f;
+};
+
+H.make_pgrm_closure = function (fname, arg, asm)
+{
+	var f = function () {
+		H.pgrm[fname].call(H.pgrm, arg);
+	};
+
+	f.closure_type = "pgrm";
+	f.closure_name = fname;
+	f.no_pgrm = 0;
+	f.asm = asm;
+
+	return f;
+};
+
 /* HP-12C emulator 
  * Copyright (c) 2011 EPx.com.br.
  * All rights reserved.
@@ -301,6 +426,8 @@ H.ERROR_DATE = 8;
 /*global H */
 
 "use strict";
+
+// FIXM15 imaginary
 
 function Hp12c_debug(format_result)
 {
@@ -324,30 +451,49 @@ Hp12c_debug.prototype.show_memory2 = function ()
 	if (title) {
 		title.innerHTML = H.type + " memory at " + now;
 
-		if (H.type != "11c") {
+		if (H.type === "12c" || H.type === "12c-platinum") {
 			for (e = 0; e < H.machine.finmemory.length; ++e) {
 				windoc.getElementById("finmemory" + e).innerHTML =
-					this.format_result(H.machine.finmemory[e]);
+					this.format_result({r: H.machine.finmemory[e]});
 			}
 		}
 		for (e = 0; e < H.machine.stomemory.length; ++e) {
-			windoc.getElementById("stomemory" + e).innerHTML =
-				this.format_result(H.machine.stomemory[e]);
+			var elem = windoc.getElementById("stomemory" + e);
+			if (! elem && e >= 32) {
+				// pardon (16c has *lots* of memory)
+				continue;
+			}
+			elem.innerHTML =
+				this.format_result(H.machine.sto_tuple(e));
 		}
-		if (H.type != "11c") {
+		if (H.type === "12c" || H.type === "12c-platinum") {
 			for (e = 0; e < H.machine.njmemory.length; ++e) {
 				windoc.getElementById("njmemory" + e).innerHTML =
-					this.format_result(H.machine.njmemory[e]);
+					this.format_result({r: H.machine.njmemory[e]});
 			}
 		}
-		windoc.getElementById("x").innerHTML = this.format_result(H.machine.x);
-		windoc.getElementById("last_x").innerHTML = this.format_result(H.machine.last_x);
-		windoc.getElementById("y").innerHTML = this.format_result(H.machine.y);
-		windoc.getElementById("z").innerHTML = this.format_result(H.machine.z);
-		windoc.getElementById("w").innerHTML = this.format_result(H.machine.w);
+		// FIXM15 15C imaginary parts
+		windoc.getElementById("x").innerHTML =
+			this.format_result(H.machine.reg_tuple("x"));
+		windoc.getElementById("last_x").innerHTML =
+			this.format_result(H.machine.reg_tuple("last_x"));
+		windoc.getElementById("y").innerHTML =
+			this.format_result(H.machine.reg_tuple("y"));
+		windoc.getElementById("z").innerHTML =
+			this.format_result(H.machine.reg_tuple("z"));
+		windoc.getElementById("w").innerHTML =
+			this.format_result(H.machine.reg_tuple("w"));
 
 		for (e = 0; e < H.machine.ram.length; ++e) {
-			windoc.getElementById("ram" + e).innerHTML = H.machine.ram[e];
+			var opcode = H.machine.ram[e];
+			var asm = H.pgrm.disassemble(opcode);
+			var txt = "";
+			
+			if (opcode && asm !== "NOP") {
+				txt = H.pgrm.disassemble(opcode) +
+					" <i>(" + opcode + ")</i>";
+			}
+			windoc.getElementById("ram" + e).innerHTML = txt;
 		}
 	}
 
@@ -408,7 +554,6 @@ H.STO2 = H.STO * 100 + 48;
 H.STO_FF = H.STO * 100 + H.FF;
 H.RCL_FF = H.RCL * 100 + H.FF;
 H.RCL2 = H.RCL * 100 + 48;
-H.RCL_GG = H.RCL * 100 + H.GG;
 H.STO_PLUS = H.STO * 100 + 40;
 H.STO_MINUS = H.STO * 100 + 30;
 H.STO_TIMES = H.STO * 100 + 20;
@@ -452,120 +597,98 @@ Hp12c_dispatcher.init_vars = function () {
 
 Hp12c_dispatcher.init_vars();
 
-H.make_closure = function (fname, args)
-{
-	var f = function () {
-		H.machine[fname].apply(H.machine, args);
-	};
-
-	f.closure_type = "machine";
-	f.closure_name = fname;
-	f.reducible = false;
-
-	return f;
-};
-
-H.make_pgrm_closure = function (fname, arg)
-{
-	var f = function () {
-		H.pgrm[fname].call(H.pgrm, arg);
-	};
-
-	f.closure_type = "pgrm";
-	f.closure_name = fname;
-
-	return f;
-};
-
 for (I = 11; I <= 15; ++I) {
-	K[I][H.FF] = H.make_pgrm_closure("user", I);
-	K[I][H.GSB] = H.make_pgrm_closure("gosub", I);
-	K[I][H.LBL] = H.make_pgrm_closure("label", I);
-	K[I][H.GTO] = H.make_pgrm_closure("gto", I);
+	var SI = (I - 1).toString(16);
+	K[I][H.FF] = H.make_pgrm_closure("user", I, "USER " + SI);
+	K[I][H.GSB] = H.make_pgrm_closure("gosub", I, "GSB " + SI);
+	K[I][H.LBL] = H.make_pgrm_closure("label", I, "LBL " + SI);
+	K[I][H.GTO] = H.make_pgrm_closure("gto", I, "GTO " + SI);
 }
 
 I = 11;
 
-K[I][H.GG] = H.make_closure("square", []);
-K[I][0] = H.make_closure("sqroot", []);
+K[I][H.GG] = H.make_closure("square", [], "SQUARE");
+K[I][0] = H.make_closure("sqroot", [], "SQRT");
 
 I = 12;
 
-K[I][H.GG] = H.make_closure("ln", []);
-K[I][0] = H.make_closure("exp", []);
+K[I][H.GG] = H.make_closure("ln", [], "LN");
+K[I][0] = H.make_closure("exp", [], "EXP");
 
 I = 13;
 
-K[I][H.GG] = H.make_closure("log10", []);
-K[I][0] = H.make_closure("power10", []);
+K[I][H.GG] = H.make_closure("log10", [], "LOG10");
+K[I][0] = H.make_closure("power10", [], "POWER10");
 
 I = 14;
 
-K[I][H.GG] = H.make_closure("percent", []);
-K[I][0] = H.make_closure("poweryx", []);
+K[I][H.GG] = H.make_closure("percent", [], "%");
+K[I][0] = H.make_closure("poweryx", [], "POWER");
 
 I = 15;
 
-K[I][H.GG] = H.make_closure("deltapercent", []);
-K[I][0] = H.make_closure("reciprocal", []);
+K[I][H.GG] = H.make_closure("deltapercent", [], "D%");
+K[I][0] = H.make_closure("reciprocal", [], "1/X");
 
 I = 16;
 
-K[I][H.FF] = H.make_closure("pi", []);
-K[I][H.GG] = H.make_closure("abs", []);
-K[I][0] = H.make_closure("chs", []);
+K[I][H.FF] = H.make_closure("pi", [], "PI");
+K[I][H.GG] = H.make_closure("abs", [], "ABS");
+K[I][0] = H.make_closure("chs", [], "CHS");
 
 for (I = 0; I <= 9; ++I) {
+	SI = I.toString(16);
+
 	// adds all functions that are commond to all digits
-	K[I][H.FIX] = H.make_closure("set_decimals", [I, 0]);
-	K[I][H.SCI] = H.make_closure("set_decimals", [I, 1]);
-	K[I][H.ENG] = H.make_closure("set_decimals", [I, 2]);
-	K[I][H.RCL] = H.make_closure("rcl", [I]);
-	K[I][H.RCL2] = H.make_closure("rcl", [I + 10]);
-	K[I][H.STO] = H.make_closure("sto", [I]);
-	K[I][H.STO2] = H.make_closure("sto", [I + 10]);
-	K[I][H.STO_PLUS] = H.make_closure("stoinfix", [I, H.STO_PLUS]);
-	K[I][H.STO_MINUS] = H.make_closure("stoinfix", [I, H.STO_MINUS]);
-	K[I][H.STO_TIMES] = H.make_closure("stoinfix", [I, H.STO_TIMES]);
-	K[I][H.STO_DIVIDE] = H.make_closure("stoinfix", [I, H.STO_DIVIDE]);
-	K[I][H.GTO] = H.make_pgrm_closure("gto", I);
-	K[I][H.GTO_MOVE] = H.make_closure("gto_digit_add", [I]);
+	K[I][H.FIX] = H.make_closure("set_decimals", [I, H.NOTATION_FIX], "FIX " + SI);
+	K[I][H.SCI] = H.make_closure("set_decimals", [I, H.NOTATION_SCI], "SCI " + SI);
+	K[I][H.ENG] = H.make_closure("set_decimals", [I, H.NOTATION_ENG], "ENG " + SI);
+	K[I][H.RCL] = H.make_closure("rcl", [I], "RCL " + SI);
+	K[I][H.RCL2] = H.make_closure("rcl", [I + 10], "RCL . " + SI);
+	K[I][H.STO] = H.make_closure("sto", [I], "STO " + SI);
+	K[I][H.STO2] = H.make_closure("sto", [I + 10], "STO . " + SI);
+	K[I][H.STO_PLUS] = H.make_closure("stoinfix", [I, H.STO_PLUS], "STO + " + SI);
+	K[I][H.STO_MINUS] = H.make_closure("stoinfix", [I, H.STO_MINUS], "STO - " + SI);
+	K[I][H.STO_TIMES] = H.make_closure("stoinfix", [I, H.STO_TIMES], "STO x " + SI);
+	K[I][H.STO_DIVIDE] = H.make_closure("stoinfix", [I, H.STO_DIVIDE], "STO / " + SI);
+	K[I][H.GTO] = H.make_pgrm_closure("gto", I, "GTO " + SI);
+	K[I][H.GTO_MOVE] = H.make_closure("gto_digit_add", [I], "GTO MOVE " + SI);
 	K[I][H.GTO_MOVE].dont_rst_modifier = 1;
-	K[I][H.GSB] = H.make_pgrm_closure("gosub", I);
-	K[I][H.LBL] = H.make_pgrm_closure("label", I);
-	K[I][H.GTO] = H.make_pgrm_closure("gto", I);
-	K[I][H.GG_SF] = H.make_closure("sf", [I]);
-	K[I][H.GG_CF] = H.make_closure("cf", [I]);
-	K[I][H.GG_FQUESTION] = H.make_closure("f_question", [I]);
-	K[I][0] = H.make_closure("digit_add", [I]);
+	K[I][H.GSB] = H.make_pgrm_closure("gosub", I, "GOSUB " + SI);
+	K[I][H.LBL] = H.make_pgrm_closure("label", I, "LBL " + SI);
+	K[I][H.GTO] = H.make_pgrm_closure("gto", I, "GTO " + SI);
+	K[I][H.GG_SF] = H.make_closure("sf", [I], "SF " + SI);
+	K[I][H.GG_CF] = H.make_closure("cf", [I], "CF " + SI);
+	K[I][H.GG_FQUESTION] = H.make_closure("f_question", [I], "F? " + SI);
+	K[I][0] = H.make_closure("digit_add", [I], "" + SI);
 }
 
 I = 7;
 
-K[I][H.GG] = H.make_closure("set_trigo", [H.TRIGO_DEG]);
+K[I][H.GG] = H.make_closure("set_trigo", [H.TRIGO_DEG], "DEG");
 M[I][H.FF] = H.FIX;
 
 I = 8;
 
-K[I][H.GG] = H.make_closure("set_trigo", [H.TRIGO_RAD]);
+K[I][H.GG] = H.make_closure("set_trigo", [H.TRIGO_RAD], "RAD");
 M[I][H.FF] = H.SCI;
 
 I = 9;
 
-K[I][H.GG] = H.make_closure("set_trigo", [H.TRIGO_GRAD]);
+K[I][H.GG] = H.make_closure("set_trigo", [H.TRIGO_GRAD], "GRAD");
 M[I][H.FF] = H.ENG;
 
 I = 10;
 
-K[I][0] = H.make_closure("divide", []);
-K[I][H.FF] = H.make_closure("test_x_le_y", []);
-K[I][H.GG] = H.make_closure("test_x_less_0", []);
+K[I][0] = H.make_closure("divide", [], "/");
+K[I][H.FF] = H.make_closure("test_x_le_y", [], "x<=y");
+K[I][H.GG] = H.make_closure("test_x_less_0", [], "x<0");
 M[I][H.STO] = H.STO_DIVIDE;
 
 I = 21;
 
-K[I][0] = H.make_pgrm_closure("sst", -1);
-K[I][H.GG] = H.make_pgrm_closure("bst", -1);
+K[I][0] = H.make_pgrm_closure("sst", -1, "SST");
+K[I][H.GG] = H.make_pgrm_closure("bst", -1, "BST");
 M[I][H.FF] = H.LBL;
 
 I = 22;
@@ -576,164 +699,165 @@ M[I][H.GG] = H.HYPINV;
 
 I = 23;
 
-K[I][H.FF] = H.make_closure("x_exchange_index", []);
-K[I][H.GG] = H.make_closure("triginv", ["asin"]);
-K[I][0] = H.make_closure("trig", ["sin"]);
-K[I][H.HYP] = H.make_closure("htrig", ["sinh"]);
-K[I][H.HYPINV] = H.make_closure("htriginv", ["asinh"]);
+K[I][H.FF] = H.make_closure("x_exchange_index", [], "X<->(I)");
+K[I][H.GG] = H.make_closure("triginv", ["asin"], "ASIN");
+K[I][0] = H.make_closure("trig", ["sin"], "SIN");
+K[I][H.HYP] = H.make_closure("htrig", ["sinh"], "SINH");
+K[I][H.HYPINV] = H.make_closure("htriginv", ["asinh"], "ASINH");
 
 I = 24;
 
-K[I][H.RCL] = H.make_closure("rcl_index", []);
-K[I][H.FF] = H.make_closure("rcl_index", []);
+K[I][H.RCL] = H.make_closure("rcl_index", [], "RCL (I)");
+K[I][H.FF] = H.make_closure("rcl_index", [], "(I)");
 K[I][H.FF].reducible = true;
 K[I][H.FF].reduced_modifier = H.RCL;
-K[I][H.RCL_FF] = H.make_closure("rcl_index", []);
+K[I][H.RCL_FF] = H.make_closure("rcl_index", [], "RCL f (I)");
 K[I][H.RCL_FF].reducible = true;
 K[I][H.RCL_FF].reduced_modifier = H.RCL;
-K[I][H.STO] = H.make_closure("sto_index", []);
-K[I][H.STO_FF] = H.make_closure("sto_index", []);
+K[I][H.STO] = H.make_closure("sto_index", [], "STO (I)"); // authoritative
+K[I][H.STO_FF] = H.make_closure("sto_index", [], "STO f (I)");
 K[I][H.STO_FF].reducible = true;
 K[I][H.STO_FF].reduced_modifier = H.STO;
-K[I][H.STO_PLUS] = H.make_closure("stoinfix_index", [H.STO_PLUS]);
-K[I][H.STO_PLUS_FF] = H.make_closure("stoinfix_index", [H.STO_PLUS]);
+K[I][H.STO_PLUS] = H.make_closure("stoinfix_index", [H.STO_PLUS], "STO + (I)");
+K[I][H.STO_PLUS_FF] = H.make_closure("stoinfix_index", [H.STO_PLUS], "STO + f (I)");
 K[I][H.STO_PLUS_FF].reducible = true;
 K[I][H.STO_PLUS_FF].reduced_modifier = H.STO_PLUS;
-K[I][H.STO_MINUS] = H.make_closure("stoinfix_index", [H.STO_MINUS]);
-K[I][H.STO_MINUS_FF] = H.make_closure("stoinfix_index", [H.STO_MINUS]);
+K[I][H.STO_MINUS] = H.make_closure("stoinfix_index", [H.STO_MINUS], "STO - (I)");
+K[I][H.STO_MINUS_FF] = H.make_closure("stoinfix_index", [H.STO_MINUS], "STO - f (I)");
 K[I][H.STO_MINUS_FF].reducible = true;
 K[I][H.STO_MINUS_FF].reduced_modifier = H.STO_MINUS;
-K[I][H.STO_TIMES] = H.make_closure("stoinfix_index", [H.STO_TIMES]);
-K[I][H.STO_TIMES_FF] = H.make_closure("stoinfix_index", [H.STO_TIMES]);
+K[I][H.STO_TIMES] = H.make_closure("stoinfix_index", [H.STO_TIMES], "STO x (I)");
+K[I][H.STO_TIMES_FF] = H.make_closure("stoinfix_index", [H.STO_TIMES], "STO x f (I)");
 K[I][H.STO_TIMES_FF].reducible = true;
 K[I][H.STO_TIMES_FF].reduced_modifier = H.STO_TIMES;
-K[I][H.STO_DIVIDE] = H.make_closure("stoinfix_index", [H.STO_DIVIDE]);
-K[I][H.STO_DIVIDE_FF] = H.make_closure("stoinfix_index", [H.STO_DIVIDE]);
+K[I][H.STO_DIVIDE] = H.make_closure("stoinfix_index", [H.STO_DIVIDE], "STO / (I)");
+K[I][H.STO_DIVIDE_FF] = H.make_closure("stoinfix_index", [H.STO_DIVIDE], "STO / f (I)");
 K[I][H.STO_DIVIDE_FF].reducible = true;
 K[I][H.STO_DIVIDE_FF].reduced_modifier = H.STO_DIVIDE;
-K[I][H.GG] = H.make_closure("triginv", ["acos"]);
-K[I][0] = H.make_closure("trig", ["cos"]);
-K[I][H.HYP] = H.make_closure("htrig", ["cosh"]);
-K[I][H.HYPINV] = H.make_closure("htriginv", ["acosh"]);
+K[I][H.GG] = H.make_closure("triginv", ["acos"], "ACOS");
+K[I][0] = H.make_closure("trig", ["cos"], "COS");
+K[I][H.HYP] = H.make_closure("htrig", ["cosh"], "COSH");
+K[I][H.HYPINV] = H.make_closure("htriginv", ["acosh"], "ACOSH");
 
 I = 25;
 
-K[I][H.RCL] = H.make_closure("get_index", []); 
-K[I][H.FF] = H.make_closure("get_index", []);
+K[I][H.RCL] = H.make_closure("get_index", [], "RCL I"); 
+K[I][H.FF] = H.make_closure("get_index", [], "I");
 K[I][H.FF].reducible = true;
 K[I][H.FF].reduced_modifier = H.RCL;
-K[I][H.RCL_FF] = H.make_closure("get_index", []); 
+K[I][H.RCL_FF] = H.make_closure("get_index", [], "RCL f I"); 
 K[I][H.RCL_FF].reducible = true;
 K[I][H.RCL_FF].reduced_modifier = H.RCL;
-K[I][H.STO] = H.make_closure("set_index", []);
-K[I][H.STO_FF] = H.make_closure("set_index", []);
+K[I][H.STO] = H.make_closure("set_index", [], "STO I");
+K[I][H.STO_FF] = H.make_closure("set_index", [], "STO f I");
 K[I][H.STO_FF].reducible = true;
 K[I][H.STO_FF].reduced_modifier = H.STO;
-K[I][H.GG] = H.make_closure("triginv", ["atan"]);
-K[I][0] = H.make_closure("trig", ["tan"]);
-K[I][H.HYP] = H.make_closure("htrig", ["tanh"]);
-K[I][H.HYPINV] = H.make_closure("htriginv", ["atanh"]);
-K[I][H.GTO] = H.make_pgrm_closure("gto", I);
-K[I][H.GSB] = H.make_pgrm_closure("gosub", I);
+K[I][H.GG] = H.make_closure("triginv", ["atan"], "ATAN");
+K[I][0] = H.make_closure("trig", ["tan"], "TAN");
+K[I][H.HYP] = H.make_closure("htrig", ["tanh"], "TANH");
+K[I][H.HYPINV] = H.make_closure("htriginv", ["atanh"], "ATANH");
+K[I][H.GTO] = H.make_pgrm_closure("gto", I, "GTO I");
+K[I][H.GSB] = H.make_pgrm_closure("gosub", I, "GSB I");
 
 
 I = 26;
 
-K[I][H.GG] = H.make_closure("polar", []);
-K[I][H.FF] = H.make_closure("orthogonal", []);
-K[I][0] = H.make_closure("input_exponential", []);
+K[I][H.GG] = H.make_closure("polar", [], "POLAR");
+K[I][H.FF] = H.make_closure("orthogonal", [], "ORTHOGONAL");
+K[I][0] = H.make_closure("input_exponential", [], "EEX");
 
 I = 4;
 
-K[I][H.FF] = H.make_closure("x_exchange_index_itself", [1]);
+K[I][H.FF] = H.make_closure("x_exchange_index_itself", [1], "X<->I");
 M[I][H.GG] = H.GG_SF;
 
 I = 5;
 
-K[I][H.FF] = H.make_closure("f_dse", [0]);
+K[I][H.FF] = H.make_closure("f_dse", [0], "DSE");
 M[I][H.GG] = H.GG_CF;
 
 I = 6;
 
-K[I][H.FF] = H.make_closure("f_isg", []);
+K[I][H.FF] = H.make_closure("f_isg", [], "ISG");
 M[I][H.GG] = H.GG_FQUESTION;
 
 I = 20;
 
-K[I][H.FF] = H.make_closure("test_x_gt_y", []);
-K[I][H.GG] = H.make_closure("test_x_gt_0", []);
-K[I][0] = H.make_closure("multiply", []);
+K[I][H.FF] = H.make_closure("test_x_gt_y", [], "X>Y");
+K[I][H.GG] = H.make_closure("test_x_gt_0", [], "X>0");
+K[I][0] = H.make_closure("multiply", [], "x");
 M[I][H.STO] = H.STO_TIMES;
 
 I = 31;
 
-K[I][H.FF] = H.make_closure("pse", []);
-K[I][H.GG] = H.make_closure("prog_pr", []);
-K[I][0] = H.make_pgrm_closure("rs", -1);
+K[I][H.FF] = H.make_closure("pse", [], "PSE");
+K[I][H.GG] = H.make_closure("prog_pr", [], "P/R");
+K[I][0] = H.make_pgrm_closure("rs", -1, "R/S");
 
 I = 32;
 
-K[I][H.FF] = H.make_closure("clear_statistics", []);
-K[I][H.GG] = H.make_pgrm_closure("rtn", -1);
+K[I][H.FF] = H.make_closure("clear_statistics", [], "CLEAR STAT");
+K[I][H.GG] = H.make_pgrm_closure("rtn", -1, "RTN");
 M[I][0] = H.GSB;
 
 I = 33;
 
-K[I][H.FF] = H.make_closure("clear_prog", []);
-K[I][H.GG] = H.make_closure("r_up", []);
-K[I][0] = H.make_closure("r_down", []);
+K[I][H.FF] = H.make_closure("clear_prog", [], "CLEAR PROG");
+K[I][H.GG] = H.make_closure("r_up", [], "R^");
+K[I][0] = H.make_closure("r_down", [], "Rv");
 
 I = 34;
 
-K[I][H.FF] = H.make_closure("clear_reg", []);
-K[I][H.GG] = H.make_closure("rnd", []);
-K[I][0] = H.make_closure("x_exchange_y", []);
+K[I][H.FF] = H.make_closure("clear_reg", [], "CLEAR REG");
+K[I][H.GG] = H.make_closure("rnd", [], "RND");
+K[I][0] = H.make_closure("x_exchange_y", [], "X<->Y");
 
 I = 35;
 
-K[I][H.FF] = H.make_closure("clear_prefix", []);
-K[I][H.GG] = H.make_closure("clx", []);
-K[I][0] = H.make_closure("digit_delete", []);
+K[I][H.FF] = H.make_closure("clear_prefix", [], "CLEAR PREFIX");
+K[I][H.FF].no_pgrm = 1;
+K[I][H.GG] = H.make_closure("clx", [], "CLx");
+K[I][0] = H.make_closure("digit_delete", [], "BSP");
 
 I = 36;
 
-K[I][H.STO] = H.make_closure("random_sto", []);
-K[I][H.STO_FF] = H.make_closure("random_sto", []);
+K[I][H.STO] = H.make_closure("random_sto", [], "STO RANDOM");
+K[I][H.STO_FF] = H.make_closure("random_sto", [], "STO f RANDOM");
 K[I][H.STO_FF].reducible = true;
 K[I][H.STO_FF].reduced_modifier = H.STO;
-K[I][H.FF] = H.make_closure("random", []);
-K[I][H.GG] = H.make_closure("lstx", [1]);
-K[I][0] = H.make_closure("enter", [0]);
+K[I][H.FF] = H.make_closure("random", [], "RANDOM");
+K[I][H.GG] = H.make_closure("lstx", [1], "LSTx");
+K[I][0] = H.make_closure("enter", [0], "ENTER");
 
 I = 1;
 
-K[I][H.FF] = H.make_closure("permutations", [1]);
-K[I][H.GG] = H.make_closure("combinations", [1]);
+K[I][H.FF] = H.make_closure("permutations", [1], "PERM");
+K[I][H.GG] = H.make_closure("combinations", [1], "COMB");
 
 I = 2;
 
-K[I][H.FF] = H.make_closure("to_hms", [0]);
-K[I][H.GG] = H.make_closure("to_hour", [0]);
+K[I][H.FF] = H.make_closure("to_hms", [0], "->HMS");
+K[I][H.GG] = H.make_closure("to_hour", [0], "->HOUR");
 
 I = 3;
 
-K[I][H.FF] = H.make_closure("to_radians", []);
-K[I][H.GG] = H.make_closure("to_degrees", []);
+K[I][H.FF] = H.make_closure("to_radians", [], "->RAD");
+K[I][H.GG] = H.make_closure("to_degrees", [], "->DEG");
 
 I = 30;
 
-K[I][0] = H.make_closure("minus", []);
-K[I][H.FF] = H.make_closure("test_x_ne_y", []);
-K[I][H.GG] = H.make_closure("test_x_ne0", []);
+K[I][0] = H.make_closure("minus", [], "-");
+K[I][H.FF] = H.make_closure("test_x_ne_y", [], "X!=Y");
+K[I][H.GG] = H.make_closure("test_x_ne0", [], "X!=0");
 M[I][H.STO] = H.STO_MINUS;
 
 I = 41;
 
-K[I][0] = H.make_closure("toggle_decimal_character", []);
-K[I][H.RCL] = H.make_closure("shv", []);
+K[I][0] = H.make_closure("toggle_decimal_character", [], "ON");
 K[I][0].no_pgrm = 1;
-K[I][H.STO] = H.make_closure("apocryphal", [1]);
+K[I][H.RCL] = H.make_closure("shv", [], "SHV");
 K[I][H.RCL].no_pgrm = 1;
+K[I][H.STO] = H.make_closure("apocryphal", [1], "APOCRYPHAL 1");
 K[I][H.STO].no_pgrm = 1;
 
 I = 42;
@@ -752,28 +876,28 @@ M[I][0] = H.GG;
 
 I = 44;
 
-K[I][H.FF] = H.make_closure("frac", []);
-K[I][H.GG] = H.make_closure("intg", []);
+K[I][H.FF] = H.make_closure("frac", [], "FRAC");
+K[I][H.GG] = H.make_closure("intg", [], "INTG");
 M[I][0] = H.STO;
 
 I = 45;
 
-K[I][H.GG] = H.make_closure("mem_info", []);
+K[I][H.GG] = H.make_closure("mem_info", [], "MEM");
 K[I][H.GG].no_pgrm = 1;
-K[I][H.FF] = H.make_closure("toggle_user", []);
+K[I][H.FF] = H.make_closure("toggle_user", [], "TOGGLE USER");
 K[I][H.FF].no_pgrm = 1;
 M[I][0] = H.RCL;
 
 I = 0;
 
-K[I][H.FF] = H.make_closure("fatorial", []);
-K[I][H.GG] = H.make_closure("stat_avg", []);
+K[I][H.FF] = H.make_closure("fatorial", [], "N!");
+K[I][H.GG] = H.make_closure("stat_avg", [], "STAT AVG");
 
 I = 48;
 
-K[I][H.GG] = H.make_closure("stat_stddev", []);
-K[I][H.FF] = H.make_closure("stat_lr", [0]);
-K[I][0] = H.make_closure("decimal_point_mode", []);
+K[I][H.GG] = H.make_closure("stat_stddev", [], "STAT STDDEV");
+K[I][H.FF] = H.make_closure("stat_lr", [0], "STAT LR Y");
+K[I][0] = H.make_closure("decimal_point_mode", [], ".");
 
 M[I][H.STO] = H.STO2;
 M[I][H.RCL] = H.RCL2;
@@ -781,24 +905,33 @@ M[I][H.GTO] = H.GTO_MOVE;
 
 I = 49;
 
-K[I][H.RCL] = H.make_closure("stat_sigma_rcl", []);
-K[I][H.FF] = H.make_closure("stat_linearregression", []);
-K[I][H.GG] = H.make_closure("stat_sigma_minus", []);
-K[I][H.STO] = H.make_closure("stat_sigma_plus", []);
-K[I][0] = H.make_closure("stat_sigma_plus", []);
+K[I][H.RCL] = H.make_closure("stat_sigma_rcl", [], "RCL STAT S+");
+K[I][H.FF] = H.make_closure("stat_linearregression", [], "STAT LR");
+K[I][H.GG] = H.make_closure("stat_sigma_minus", [], "STAT S-");
+K[I][H.STO] = H.make_closure("stat_sigma_plus", [], "STO STAT S+");
+K[I][H.STO].reducible = true;
+K[I][H.STO].reduced_modifier = 0;
+K[I][0] = H.make_closure("stat_sigma_plus", [], "STAT S+");
 
 I = 40;
 
-K[I][0] = H.make_closure("plus", []);
-K[I][H.FF] = H.make_closure("test_x_eq_y", []);
-K[I][H.GG] = H.make_closure("test_x_eq0", []);
+K[I][0] = H.make_closure("plus", [], "+");
+K[I][H.FF] = H.make_closure("test_x_eq_y", [], "x=y");
+K[I][H.GG] = H.make_closure("test_x_eq0", [], "x=0");
 M[I][H.STO] = H.STO_PLUS;
 
 I = 50;
 
 // This is just to satisfy STOP_INSTRUCTION in 11C
-K[I][0] = H.make_closure("nop", []);
+K[I][0] = H.make_closure("nop", [], "NOP");
 
+// remove from scope
+M = undefined;
+K = undefined;
+/*jslint white: true, undef: true, nomen: true, regexp: true, strict: true, browser: true, bitwise: true */
+/*global H, Hp12c_dispatcher */
+
+"use strict";
 
 Hp12c_dispatcher.prototype.handle_modifier = function (key, pgrm_mode)
 {
@@ -891,7 +1024,7 @@ Hp12c_dispatcher.prototype.dispatch = function (key)
 		return;
 	}
 
-	if (H.keyboard.enabled() && H.machine.error_in_display) {
+	if (H.machine.error_in_display) {
 		H.machine.reset_error();
 		return;
 	} else if (H.machine.program_mode >= H.RUNNING) {
@@ -931,6 +1064,9 @@ Hp12c_dispatcher.prototype.dispatch = function (key)
 				// USER + invalid modifier -> f
 				H.machine.modifier = H.FF;
 			}
+			// GSB [A-F] and GTO [A-F] not affected because
+			// GSB and GTO are modifiers different from the ones
+			// handled above.
 		} else {
 			// natural course
 		}
@@ -966,11 +1102,7 @@ Hp12c_dispatcher.prototype.dispatch_common = function (key)
 	}
 
 	var rst_modifier = 1;
-	var rst_do_fincalc = 1;
 
-	if (f.dont_rst_do_fincalc) {
-		rst_do_fincalc = 0;
-	}
 	if (f.dont_rst_modifier) {
 		rst_modifier = 0;
 	}
@@ -978,20 +1110,12 @@ Hp12c_dispatcher.prototype.dispatch_common = function (key)
 	f();
 
 	if (rst_modifier) {
-		H.machine.rst_modifier(rst_do_fincalc);
+		H.machine.rst_modifier(1);
 	}
 
 	return ok;
 };
 
-Hp12c_dispatcher.prototype.KEY_ISDIGIT = function (k) 
-{
-	return k >= 0 && k <= 9;
-};
-
-// remove from scope
-M = undefined;
-K = undefined;
 /* HP-12C emulator 
  * Copyright (c) 2011 EPx.com.br.
  * All rights reserved.
@@ -1002,12 +1126,18 @@ K = undefined;
 
 "use strict";
 
+// FIXM15 15c augment (complex)
+// FIXM15 15c flags
+
 function Hp12c_display()
 {
 	this.display_max = 9999999999;
 	this.display_len = 10; // without extra -
 	this.display_min = 0.0000000001;
 	this.lcd = [];
+	this.contents = "";
+	this.contents_alt = "";
+	this.blink_delay = 25;
 
 	var LCD_A = 1;
 	var LCD_B = 2;
@@ -1035,68 +1165,63 @@ function Hp12c_display()
 	this.lcdmap['.'] = LCD_P;
 	this.lcdmap[','] = LCD_P | LCD_T;
 	this.lcdmap['r'] = LCD_A | LCD_B;
+	this.lcdmap['U'] = LCD_B | LCD_C | LCD_E | LCD_F | LCD_G;
 	this.lcdmap['u'] = LCD_B | LCD_C | LCD_D;
 	this.lcdmap['n'] = LCD_B | LCD_C | LCD_A;
 	this.lcdmap['i'] = LCD_B;
 	this.lcdmap['g'] = LCD_A | LCD_B | LCD_C | LCD_D | LCD_F | LCD_G;
 	this.lcdmap['-'] = LCD_D;
+	this.lcdmap['A'] = LCD_A | LCD_B | LCD_C | LCD_D | LCD_E | LCD_F;
+	this.lcdmap['a'] = this.lcdmap['A'];
+	this.lcdmap['B'] = LCD_B | LCD_D | LCD_E | LCD_F | LCD_G;
+	this.lcdmap['b'] = this.lcdmap['B'];
+	this.lcdmap['c'] = LCD_D | LCD_E | LCD_G;
+	this.lcdmap['C'] = this.lcdmap['c'];
+	this.lcdmap['d'] = LCD_C | LCD_D | LCD_E | LCD_F | LCD_G;
+	this.lcdmap['D'] = this.lcdmap['d'];
 	this.lcdmap['E'] = LCD_A | LCD_B | LCD_D | LCD_E | LCD_G;
-	this.lcdmap['e'] = LCD_A | LCD_B | LCD_D | LCD_E | LCD_G;
-	this.lcdmap['O'] = LCD_D | LCD_E | LCD_F | LCD_G;
+	this.lcdmap['e'] = this.lcdmap['E'];
+	this.lcdmap['F'] = LCD_A | LCD_B | LCD_D | LCD_E;
+	this.lcdmap['f'] = this.lcdmap['F'];
+	this.lcdmap['H'] = LCD_B | LCD_C | LCD_D | LCD_E | LCD_F;
+	this.lcdmap['h'] = LCD_B |         LCD_D | LCD_E | LCD_F;
+	this.lcdmap['o'] = LCD_D | LCD_E | LCD_F | LCD_G;
+	this.lcdmap['O'] = this.lcdmap["o"];
 	this.lcdmap['R'] = LCD_D | LCD_E;
 	this.lcdmap['P'] = LCD_A | LCD_B | LCD_C | LCD_D | LCD_E;
 	this.lcdmap[':'] = LCD_P;
-	this.functionality_level = 0;
-
-	if (! document) {
-		// not running on a browser
-		return;
-	}
-
-	if (! document.getElementById) {
-		// not running on a browser
-		return;
-	}
-
-	if (! document.getElementById("display")) {
-		// not running on a browser
-		return;
-	}
-
-	if (window.lcd_broken) {
-		// broken (IE6) but operational otherwise
-		this.functionality_level = 1;
-	} else {
-		// fully operational
-		this.functionality_level = 2;
-	}
 
 	for (var e = 0; e <= 10; ++e) {
 		this.lcd[e] = [];
 		this.lcd[e][0] = 0;
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "a");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "b");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "c");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "d");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "e");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "f");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "g");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "p");
-		this.lcd[e][this.lcd[e].length] = document.getElementById("lcd" + e + "t");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "a");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "b");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "c");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "d");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "e");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "f");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "g");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "p");
+		this.lcd[e][this.lcd[e].length] = H.getElem("lcd" + e + "t");
 	}
 	
-	this.display = document.getElementById("display");
-	this.dbegin = document.getElementById("begin");
-	this.ddmyc = document.getElementById("dmyc");
-	this.dmodifier = document.getElementById("modifier");
-	this.pgrm = document.getElementById("pgrm");
-	this.rpnalg = document.getElementById("rpnalg");
-	this.trigo = document.getElementById("trigo");
-	this.user = document.getElementById("user");
+	this.display = H.getElem("display");
+	this.dbegin = H.getElem("begin");
+	this.ddmyc = H.getElem("dmyc");
+	this.dmodifier = H.getElem("modifier");
+	this.pgrm = H.getElem("pgrm");
+	this.rpnalg = H.getElem("rpnalg");
+	this.trigo = H.getElem("trigo");
+	this.user = H.getElem("user");
+	this.carry = H.getElem("carry");
+	this.overflow = H.getElem("overflow");
+	this.altdisplay = H.getElem("altdisplay");
+	this.wordstatus = H.getElem("wordstatus");
 
 	this.clear();
 }
 
+// TODO unit test LCD and annunciators
 Hp12c_display.prototype.private_show_digit = function (dgt, pos, merge)
 {
 	if (pos >= this.lcd.length) {
@@ -1138,24 +1263,62 @@ Hp12c_display.prototype.private_lcd_display = function (txt)
 
 Hp12c_display.prototype.show = function (txt)
 {
-	if (this.functionality_level >= 2) {
-		this.private_lcd_display(txt);
-	} else if (this.functionality_level >= 1) {
-		this.display.innerHTML = txt;
+	// printf("display show: " + txt);
+	this.contents = txt;
+
+	this.private_lcd_display(txt);
+};
+
+Hp12c_display.prototype.show_alt = function (txt)
+{
+	this.contents_alt = txt;
+
+	if (this.altdisplay) {
+		this.altdisplay.innerHTML = txt;
+	}
+};
+
+Hp12c_display.prototype.html_wrap = function (txt)
+{
+	var j = 0;
+	var c;
+	for (var i = 0; i < txt.length; ++i) {
+		c = txt.charAt(i);
+		++j;
+		if (j > 13 || (j > 9 && (c === "." || c === ","))) {
+			txt = txt.substr(0, i + 1) + "<br>" + txt.substr(i + 1);
+			i += 4;
+			j = 0;
+		}
+	}
+
+	return txt;
+};
+
+Hp12c_display.prototype.show_wordstatus = function (txt)
+{
+	if (this.wordstatus) {
+		this.wordstatus.innerHTML = txt;
 	}
 };
 
 Hp12c_display.prototype.clear = function ()
 {
-	if (this.functionality_level >= 2) {
-		for (var e = 0; e < this.lcd.length; ++e) {
-			for (var f = 1; f < this.lcd[e].length; ++f) {
-				this.lcd[e][f].style.visibility = "hidden";
-			}
+	for (var e = 0; e < this.lcd.length; ++e) {
+		for (var f = 1; f < this.lcd[e].length; ++f) {
+			this.lcd[e][f].style.visibility = "hidden";
 		}
-	} else if (this.functionality_level >= 1) {
-		this.display.innerHTML = "";
 	}
+	this.show_alt("");
+	this.show_wordstatus("");
+};
+
+Hp12c_display.prototype.format_result_tuple = function (t)
+{
+	if (H.machine.notation < H.NOTATION_INT) {
+		return this.format_result(t.r);
+	}
+	return this.format_result_int(t);
 };
 
 Hp12c_display.prototype.format_result = function (n)
@@ -1238,7 +1401,7 @@ Hp12c_display.prototype.format_result = function (n)
 
 	if (notation != H.NOTATION_FIX) {
 		// show as exponential
-		if (mantissa === 0 && H.type != "11c" && false) {
+		if (mantissa === 0 && (H.type !== "11c" && H.type !== "15c") && false) {
 			// in SCI mode, 12C shows 0.0000000 00 too...
 			return H.i18n(' 0', co, 1);
 		} else if (degenerate == 1) {
@@ -1295,9 +1458,171 @@ Hp12c_display.prototype.format_result = function (n)
 	return res;
 };
 
+Hp12c_display.prototype.get_radix = function ()
+{
+	var radix = H.radix[H.machine.notation];
+	var suffix = H.radix_suffix[H.machine.notation];
+
+	return [radix, suffix];
+};
+
+Hp12c_display.prototype.integer_to_string = function (t, radix)
+{
+	// for non-decimal, how as unsigned
+	var negative_repr = 0;
+	if (radix === 10) {
+		negative_repr = H.machine.negative_repr;
+	}
+
+	var spure = H.integer_to_string(t,
+					negative_repr,
+					H.machine.wordsize,
+					radix,
+					true);
+
+	return spure;
+};
+
+Hp12c_display.prototype.format_result_int = function (t)
+{
+	var radix = this.get_radix()[0];
+	return this.integer_to_string(t, radix);
+};
+
+Hp12c_display.prototype.p_display_integer = function (x, xmode, typed_digits)
+{
+	var typing = xmode > -100; // -100, -1, 0
+	var point1 = "";
+	var point2 = "";
+	var sign = " ";
+	var show_apocryphal = (H.machine.altdisplay > 0);
+
+	var radix = this.get_radix();
+	var suffix = radix[1];
+	radix = radix[0];
+
+	var spure = this.integer_to_string(x, radix);
+	var spure16;
+	if (radix === 2) {
+		spure16 = this.integer_to_string(x, 16);
+	}
+	// console.log(spure);
+
+	if (spure.substr(0, 1) === "-") {
+		spure = spure.substr(1);
+		sign = "-";
+	}
+
+	var s, sfull;
+	var len = 8;
+
+	var bits_per_digit = H.digit_bits[H.machine.notation];
+	var digits_on_display = H.win_digits[H.machine.notation];
+	var tot_digits = Math.ceil(H.machine.wordsize / bits_per_digit);
+	var wincount = H.machine.window_count();
+	var tot_digits_ceil = wincount * digits_on_display;
+
+	var si2 = spure;
+	var significant_digits = si2.length;
+	var significant_windows = Math.ceil(significant_digits /
+						digits_on_display);
+
+	if (typing) {
+		while (si2.length < typed_digits) {
+			si2 = "0" + si2;
+		}
+	}
+
+	var current_window = typing ? 0 : H.machine.intwindow;
+
+	show_apocryphal = show_apocryphal &&
+				(significant_windows > 1 || current_window > 0);
+
+	var filler = " ";
+	if (H.machine.get_zeros_flag() && radix !== 10) {
+		filler = "0";
+	}
+
+	while (si2.length < tot_digits) {
+		si2 = filler + si2;
+	}
+
+	while (si2.length < tot_digits_ceil) {
+		si2 = " " + si2;
+	}
+
+	if (current_window > 0) {
+		point2 = ".";
+	}
+	if (current_window < (significant_windows - 1)) {
+		point1 = ".";
+	}
+
+	// window cutting
+	var dpos;
+	dpos = (wincount - current_window - 1) * digits_on_display;
+	si2 = si2.substr(dpos, digits_on_display);
+	// convert dpos to "last digit = 0"
+	dpos = current_window * digits_on_display;
+
+	var lcdsign = sign;
+
+	if (radix === 10) {
+		var sp = si2.lastIndexOf(" ");
+		if (sp >= 0) {
+			si2 = si2.substr(0, sp) + lcdsign + si2.substr(sp + 1);
+			lcdsign = " ";
+		} else if (point1 === ".") {
+			// next window has significant digits
+			// do not show LCD sign
+			lcdsign = " ";
+		} else {
+			// this window is full but next window does not
+			// have significant digits
+			// leave LCD sign in place
+		}
+	}
+
+	// if radix = 10 and window > 0, i18n() might put decimal places
+	// in wrong values, because si2 has been cut. We add zeros as
+	// LSBs until the LSB is a multiple of 3, so i18n(si2) does well.
+	var r10comp = 0;
+	while (radix === 10 && ((dpos - r10comp) % 3) > 0) {
+		si2 += "0";
+		r10comp++;
+	}
+	si2 = H.i18n(si2, H.machine.comma, 0, radix === 10 ? 3 : 4);
+	// Remove LSB compensation, if it was made above
+	if (radix === 10 && r10comp > 0) {
+		si2 = si2.substr(0, si2.length - r10comp);
+	}
+	s = lcdsign + si2 + " " + point1 + suffix + point2;
+
+	sfull = sign + (radix === 2 ? spure16 : spure);
+	sfull = H.i18n(sfull, H.machine.comma, 0, radix === 10 ? 3 : 4);
+
+	this.show(s);
+	if (show_apocryphal) {
+		this.show_alt(this.html_wrap(sfull));
+	} else {
+		this.show_alt("");
+	}
+};
+
+Hp12c_display.prototype.displayNumber_now_integer = function (x)
+{
+	this.p_display_integer(x, -100);
+};
+
 Hp12c_display.prototype.displayNumber_now = function (x)
 {
+	if (H.type === "16c" && H.machine.notation >= H.NOTATION_INT) {
+		this.displayNumber_now_integer(x);
+		return;
+	}
+
 	var co = H.machine.comma;
+	x = x.r;
 
 	if (isNaN(x)) {
 		x = 0;
@@ -1312,22 +1637,24 @@ Hp12c_display.prototype.displayNumber_now = function (x)
 	// display result
 	var sres = this.format_result(x);
 	this.show(sres);
-};
-
-Hp12c_display.prototype.displayNumber_endBlink = function (x)
-{
-	H.machine.sti();
-	this.displayNumber_now(x);
+	this.show_alt("");
 };
 
 Hp12c_display.prototype.displayNumber = function (x)
 {
-	H.machine.cli();
+	H.machine.cli("display");
 	this.show("");
 	var a = this;
+	// printf("## Scheduling to display " + x.r + " " + x.h);
 	window.setTimeout(function () {
-		a.displayNumber_endBlink(x);
-	}, 25);
+		H.machine.sti("display");
+		a.displayNumber_now(x);
+	}, this.blink_delay);
+};
+
+Hp12c_display.prototype.displayTypedNumber_integer = function (val, xmode, digits)
+{
+	this.p_display_integer(val, xmode, digits);
 };
 
 Hp12c_display.prototype.displayTypedNumber = function (ms, m, dec, exp, exps, xmode)
@@ -1341,7 +1668,7 @@ Hp12c_display.prototype.displayTypedNumber = function (ms, m, dec, exp, exps, xm
 		} else {
 			s = (ms < 0 ? "-" : " ") + m;
 		}
-		if (H.type != "11c") {
+		if (H.type !== "11c" && H.type !== "15c") {
 			s += ".";
 		}
 		s = H.i18n(s, co, 0);
@@ -1357,75 +1684,83 @@ Hp12c_display.prototype.displayTypedNumber = function (ms, m, dec, exp, exps, xm
 		s += H.zeropad(parseInt("0" + exp, 10).toFixed(0), 2);
 	}
 	this.show(s);
+	this.show_alt("");
+};
+
+H.mod_stt = null;
+
+Hp12c_display.prototype.modifier_table = function ()
+{
+	if (H.mod_stt) {
+		return H.mod_stt;
+	}
+
+	var a = [];
+
+	a[0] = "";
+	a[H.FF] = "f";
+	a[H.GG] = "g";
+	a[H.STO] = "STO";
+	a[H.STO2] = "STO★";
+	a[H.RCL] = "RCL";
+	a[H.RCL2] = "RCL★";
+	
+	if (H.type !== "16c") {
+		a[H.STO_PLUS] = "STO+";
+		a[H.STO_MINUS] = "STO-";
+		a[H.STO_TIMES] = "STO×";
+		a[H.STO_DIVIDE] = "STO÷";
+	}
+
+	a[H.GTO] = "GTO";
+	a[H.GTO_MOVE] = "GTO★";
+
+	if (H.type === "12c" || H.type === "12c-platinum") {
+		a[H.RCL_GG] = "RCL g";
+
+	} else if (H.type === "11c" || H.type === "15c") {
+		a[H.HYP] = "HYP";
+		a[H.HYPINV] = "HYPINV";
+		a[H.LBL] = "f LBL";
+		a[H.GSB] = "GSB";
+		a[H.FIX] = "f FIX";
+		a[H.SCI] = "f SCI";
+		a[H.ENG] = "f ENG";
+		a[H.STO_FF] = "STO f";
+		a[H.RCL_FF] = "RCL f";
+		a[H.GG_SF] = "g SF";
+		a[H.GG_CF] = "g CF";
+		a[H.GG_FQUESTION] = "g F?";
+		a[H.STO_PLUS_FF] = "STO+,f";
+		a[H.STO_MINUS_FF] = "STO-,f";
+		a[H.STO_TIMES_FF] = "STO×,f";
+		a[H.STO_DIVIDE_FF] = "STO÷,f";
+
+	} else if (H.type === "16c") {
+		a[H.LBL] = "g LBL";
+		a[H.GSB] = "GSB";
+		a[H.GG_SF] = "g SF";
+		a[H.GG_CF] = "g CF";
+		a[H.GG_FQUESTION] = "g F?";
+		a[H.STO_FF] = "STO f";
+		a[H.RCL_FF] = "RCL f";
+		a[H.WINDOW] = "WINDOW";
+		a[H.FLOAT] = "FLOAT";
+	}
+
+	H.mod_stt = a;
+	return H.mod_stt;
 };
 
 Hp12c_display.prototype.show_modifier = function (m)
 {
-	var txt = "";
-	var txtuser = "";
-	if (m == H.FF) {
-		txt = "f";
-	} else if (m == H.GG) {
-		txt = "g";
-	} else if (m == H.STO) {
-		txt = "STO";
-	} else if (m == H.STO2) {
-		txt = "STO★";
-	} else if (m == H.RCL) {
-		txt = "RCL";
-	} else if (m == H.RCL2) {
-		txt = "RCL★";
-	} else if (m == H.RCL_GG) {
-		txt = "RCL g";
-	} else if (m == H.STO_PLUS) {
-		txt = "STO+";
-	} else if (m == H.STO_PLUS_FF) {
-		txt = "STO+,f";
-	} else if (m == H.STO_MINUS) {
-		txt = "STO-";
-	} else if (m == H.STO_MINUS_FF) {
-		txt = "STO-,f";
-	} else if (m == H.STO_TIMES) {
-		txt = "STO×";
-	} else if (m == H.STO_TIMES_FF) {
-		txt = "STO×,f";
-	} else if (m == H.STO_DIVIDE) {
-		txt = "STO÷";
-	} else if (m == H.STO_DIVIDE_FF) {
-		txt = "STO÷,f";
-	} else if (m == H.GTO) {
-		txt = "GTO";
-	} else if (m == H.GTO_MOVE) {
-		txt = "GTO★";
-	} else if (H.type != "11c") {
+	var txt = this.modifier_table()[m];
+	if (txt === undefined || txt === null) {
+		console.log("Unknown modifier " + m);
 		txt = "";
-	} else if (m == H.HYP) {
-		txt = "HYP";
-	} else if (m == H.HYPINV) {
-		txt = "HYPINV";
-	} else if (m == H.LBL) {
-		txt = "f LBL";
-	} else if (m == H.GSB) {
-		txt = "GSB";
-	} else if (m == H.FIX) {
-		txt = "f FIX";
-	} else if (m == H.SCI) {
-		txt = "f SCI";
-	} else if (m == H.ENG) {
-		txt = "f ENG";
-	} else if (m == H.STO_FF) {
-		txt = "STO f";
-	} else if (m == H.RCL_FF) {
-		txt = "RCL f";
-	} else if (m == H.GG_SF) {
-		txt = "g SF";
-	} else if (m == H.GG_CF) {
-		txt = "g CF";
-	} else if (m == H.GG_FQUESTION) {
-		txt = "g F?";
 	}
 
-	if (this.functionality_level >= 1) {
+	if (this.dmodifier) {
 		this.dmodifier.innerHTML = txt;
 	}
 };
@@ -1437,24 +1772,53 @@ Hp12c_display.prototype.show_begin = function (is_begin)
 		txt = "BEGIN";
 	}
 
-	if (this.dbegin && this.functionality_level >= 1) {
+	if (this.dbegin) {
 		this.dbegin.innerHTML = txt;
+	}
+};
+
+Hp12c_display.prototype.show_carry = function (is_carry)
+{
+	var txt = "";
+	if (is_carry) {
+		txt = "C";
+	}
+
+	if (H.type === "16c" && this.carry) {
+		this.carry.innerHTML = txt;
+	}
+};
+
+Hp12c_display.prototype.show_overflow = function (is_overflow)
+{
+	var txt = "";
+	if (is_overflow) {
+		txt = "G";
+	}
+
+	if (H.type === "16c" && this.overflow) {
+		this.overflow.innerHTML = txt;
 	}
 };
 
 Hp12c_display.prototype.show_error = function (err)
 {
 	this.show("ERROR " + err);
+	this.show_alt("");
 };
 
 Hp12c_display.prototype.display_meminfo = function (mem, stolen)
 {
 	--stolen;
-	var stolen_txt = (stolen % 10).toFixed(0);
-	if (stolen >= 10) {
-		stolen_txt = ":" + stolen_txt;
+	var stolen_txt = stolen.toFixed(0);
+	if (H.type !== "16c") {
+		stolen_txt = (stolen % 10).toFixed(0);
+		if (stolen >= 10) {
+			stolen_txt = ":" + stolen_txt;
+		}
 	}
 	this.show("P-" + H.zeropad(mem, H.ram_ADDR_SIZE) + " R-" + stolen_txt);
+	this.show_alt("");
 };
 
 Hp12c_display.prototype.show_dmyc = function (dmy, compoundf)
@@ -1466,8 +1830,15 @@ Hp12c_display.prototype.show_dmyc = function (dmy, compoundf)
 	if (compoundf) {
 		txt += "&nbsp;&nbsp;C";
 	}
-	if (this.ddmyc && this.functionality_level >= 1) {
+	if (this.ddmyc) {
 		this.ddmyc.innerHTML = txt;
+	}
+};
+
+Hp12c_display.prototype.show_pse = function ()
+{
+	if (this.dmodifier) {
+		this.dmodifier.innerHTML = "PAUSE";
 	}
 };
 
@@ -1479,26 +1850,24 @@ Hp12c_display.prototype.show_pgrm = function (pgrm, run, pc)
 	} else if (run) {
 		txt = "RUN " + H.zeropad(pc.toFixed(0), 2);
 	}
-	if (this.functionality_level >= 1) {
+	if (this.pgrm) {
 		this.pgrm.innerHTML = txt;
 	}
 };
 
 Hp12c_display.prototype.show_algmode = function (algmode)
 {
-	if (this.rpnalg && H.type == "12c-platinum") {
+	if (this.rpnalg && H.type === "12c-platinum") {
 		var txt = ["RPN", "ALG"][algmode];
-		if (this.functionality_level >= 1) {
-			this.rpnalg.innerHTML = txt;
-		}
+		this.rpnalg.innerHTML = txt;
 	}
 };
 
 Hp12c_display.prototype.show_trigo = function (trigo)
 {
-	if (H.type == "11c") {
+	if (H.type === "11c" || H.type === "15c") {
 		var txt = ["", "RAD", "GRAD"][trigo];
-		if (this.trigo && this.functionality_level >= 1) {
+		if (this.trigo) {
 			this.trigo.innerHTML = txt;
 		}
 	}
@@ -1506,9 +1875,9 @@ Hp12c_display.prototype.show_trigo = function (trigo)
 
 Hp12c_display.prototype.show_user = function (user)
 {
-	if (H.type == "11c") {
+	if (H.type === "11c" || H.type === "15c") {
 		var txt = ["", "USER"][user];
-		if (this.user && this.functionality_level >= 1) {
+		if (this.user) {
 			this.user.innerHTML = txt;
 		}
 	}
@@ -1608,22 +1977,7 @@ function Hp12c_keyboard()
 	this.vertical_map[64] = 49;
 	this.vertical_map[65] = 40;
 
-	this.browser = 1;
-
-	if (document && document.getElementById) {
-		this.pointer_div = document.getElementById("pointer_div");
-	} else {
-		// not in a browser; surrogate to satisfy unit tests
-		var s = {};
-		var t = {};
-		t.width = 700;
-		t.height = 438;
-		s.offsetLeft = 0;
-		s.offsetTop = 0;
-		s.style = t;
-		this.pointer_div = s;
-		this.browser = 0;
-	}
+	this.pointer_div = H.getElem("pointer_div");
 
 	// recalculate keyboard coordinates
 	// based on original ones for 700x438 image
@@ -1641,41 +1995,39 @@ function Hp12c_keyboard()
 
 	this.microsoft = (window.navigator && window.navigator.msPointerEnabled && true);
 	
-	this.enable();
-
 	var o = this;
 
-	if (this.browser) {
-		if (H.touch_display) {
-			if (this.microsoft) {
-				var handler = function (x) {
-					o.mouse_click(x);
-				};
-				window.cross.addEventListener("MSPointerDown", handler, true);
-			} else {
-				document.getElementById("cross").ontouchstart = function (x) {
-					o.mouse_click(x);
-				};
-			}
-		} else {	
-			document.getElementById("cross").onclick = function (x) {
+	if (H.touch_display) {
+		if (this.microsoft) {
+			var handler = function (x) {
+				o.mouse_click(x);
+			};
+			window.cross.addEventListener("MSPointerDown", handler, true);
+		} else {
+			H.getElem("cross").ontouchstart = function (x) {
 				o.mouse_click(x);
 			};
 		}
-		document.onkeypress = function (x) {
-			o.hard_keyboard(x);
+	} else {	
+		H.getElem("cross").onclick = function (x) {
+			o.mouse_click(x);
 		};
 	}
+	document.onkeypress = function (x) {
+		o.hard_keyboard(x);
+	};
 }
 
 Hp12c_keyboard.prototype.enable = function ()
 {
 	this.is_enabled = 1;
+	// console.log("kbd enabled ");
 };
 
 Hp12c_keyboard.prototype.disable = function ()
 {
 	this.is_enabled = 0;
+	// console.log("kbd disabled ");
 };
 
 Hp12c_keyboard.prototype.enabled = function ()
@@ -1691,6 +2043,8 @@ Hp12c_keyboard.prototype.remap_key_vertical = function (raw)
 	}
 	return key;
 };
+
+// TODO unit test key mapping etc.
 
 Hp12c_keyboard.prototype.remap_key = function (raw)
 {
@@ -1739,7 +2093,9 @@ Hp12c_keyboard.prototype.hard_keyboard = function (e)
 
 	var kk = this.kbdtable[keychar];
 	if (kk !== undefined && kk !== null) {
-		H.dispatcher.dispatch(this.kbdtable[keychar]);
+		if (this.enabled()) {
+			H.dispatcher.dispatch(this.kbdtable[keychar]);
+		}
 		e.returnValue = false;
 		if (e.preventDefault) {
 			e.preventDefault();
@@ -1795,7 +2151,9 @@ Hp12c_keyboard.prototype.mouse_click = function (evt)
 		if (in_key) {
 			key = this.remap_key_vertical(key);
 			if (key >= 0) {
-				H.dispatcher.dispatch(key);
+				if (this.enabled()) {
+					H.dispatcher.dispatch(key);
+				}
 			}
 		}
 	} else {
@@ -1815,7 +2173,9 @@ Hp12c_keyboard.prototype.mouse_click = function (evt)
 
 		in_key = (pos_x < this.xl) && ((pos_y < this.yl) || key == 25);
 		if (in_key) {
-			H.dispatcher.dispatch(this.remap_key(key));
+			if (this.enabled()) {
+				H.dispatcher.dispatch(this.remap_key(key));
+			}
 		}
 	}
 };
@@ -1881,11 +2241,32 @@ H.hp1xc_keyboard_flavor = function (kbdtable)
 /*jslint white: true, undef: true, nomen: true, regexp: true, bitwise: true, strict: true, browser: true */
 /*global H */
 
-// TODO unit tests
-
 "use strict";
 
+// FIXM15 stack-neutral operations (that don't change this.pushed)
+// test with 12C and 11C
+
 function Hp12c_machine()
+{
+	// algebraic operations
+
+	this.ALG_PLUS = 1;
+	this.ALG_MINUS = 2;
+	this.ALG_MULTIPLY = 3;
+	this.ALG_DIVIDE = 4;
+	this.ALG_POWER = 5;
+
+	this.nvname = H.type_cookie;
+
+	// TODO this should be in init_memory()
+	// and unit tests should wait it to go back to 1
+	this.sti_level = 0;
+
+	this.init_memory();
+}
+
+/* Can be called before display and other components are still uninitialized */
+Hp12c_machine.prototype.init_memory = function (n)
 {
 	// calculator non-volatile memory -----------------------------------------------------------
 
@@ -1896,25 +2277,59 @@ function Hp12c_machine()
 	this.last_x = 0;
 	this.alg_op = 0;
 
+	// 15C imaginary parts of each register
+	this.xi = 0;
+	this.yi = 0;
+	this.zi = 0;
+	this.wi = 0;
+	this.last_xi = 0;
+	// FIXM15 handle complex mode and calculations (15c)
+
+	this.matrixmem = [];
+	// FIXM15 zeroing matrixmem (15c)
+
+	// 16C "high" parts of 64-bit integer numbers
+	this.xh = 0;
+	this.yh = 0;
+	this.zh = 0;
+	this.wh = 0;
+	this.last_xh = 0;
+	this.stomemoryh = [];
+	this.wordsize = H.DEFAULT_WORDSIZE;
+	this.intwindow = 0;
+	this.negative_repr = 2;
+
 	this.stomemory = [];
 	this.finmemory = [];
 	this.njmemory = [];
-	this.index = 0; // 11C only
+	this.index = 0; // not-12C
 
 	this.ram = [];
 	this.program_size = 1; // for STOP in [0]
-	this.flags = [0, 0];
+	this.flags = [];
+
+	var i;
+	for (i = 0; i < H.FLAGS_MAX; ++i) {
+		this.flags[i] = 0;
+	}
 
 	this.decimals = 2;
 	this.comma = 0; 
+	this.altdisplay = 1; // 16c alternative (apocryphal) displays
 
 	this.begin = 0;
 	this.dmy = 0;
 	this.compoundf = 0;
 
 	this.notation = H.NOTATION_FIX;
+	if (H.type === "16c") {
+		this.notation = H.NOTATION_INT_HEX;
+	}
 	this.trigo = H.TRIGO_DEG;
+	this.complex = 0;
 	this.user = 0;
+
+	this.prng = new H.Prng(1);
 
 	// volatile memory ---------------------------------------------------------------------
 
@@ -1933,35 +2348,253 @@ function Hp12c_machine()
 	this.typed_exponent_signal = 1;
 	this.error_in_display = 0;
 
-	this.call_stack = []; // 11C-only
+	this.call_stack = []; // not-12C
 
-	// algebraic operations
-
-	this.ALG_PLUS = 1;
-	this.ALG_MINUS = 2;
-	this.ALG_MULTIPLY = 3;
-	this.ALG_DIVIDE = 4;
-	this.ALG_POWER = 5;
-
-	this.nvname = H.type_cookie;
-
-	if (H.type == '11c') {
+	if (H.type === '11c') {
 		this.nvN = ['x', 'y', 'z', 'w', 'last_x', 
 			  'decimals', 'comma', 'index',
 			  'trigo', 'user', 'notation'];
 		this.nvAN = ['stomemory', 'flags'];
+	} else if (H.type === '15c') {
+		this.nvN = ['x',  'y',  'z',  'w',  'last_x',
+                            'xi', 'yi', 'zi', 'wi', 'last_xi',
+			  'decimals', 'comma', 'index',
+			  'trigo', 'user', 'notation', 'complex'];
+		this.nvAN = ['stomemory', 'matrixmem', 'flags'];
+	} else if (H.type === '16c') {
+		this.nvN = ['x',  'y',  'z',  'w',  'last_x',
+			    'xh', 'yh', 'zh', 'wh', 'last_xh',
+			  'decimals', 'comma', 'index', 'notation',
+			  'wordsize', 'intwindow', 'negative_repr',
+			'altdisplay'];
+		this.nvAN = ['stomemory', 'stomemoryh', 'flags'];
 	} else {
+		// 12C
 		this.nvN = ['x', 'y', 'z', 'w', 'last_x', 'alg_op', 'algmode',
 				'decimals', 'comma', 'begin',
 				'dmy', 'compoundf', 'notation'];
 		this.nvAN = ['stomemory', 'finmemory', 'njmemory'];
 	}
 	this.nvAX = ['ram'];
-}
+};
+
+Hp12c_machine.prototype.check_reg = function (n)
+{
+	if (n !== "x" && n !== "y" && n !== "z" && n !== "w" && n !== "last_x") {
+		console.log("Bad register name");
+		return false;
+	}
+	return true;
+};
+
+Hp12c_machine.prototype.sto_Reset = function (i)
+{
+	this.stomemory[i] = 0;
+	this.stomemoryh[i] = 0;
+};
+
+Hp12c_machine.prototype.reg_Reset = function (n)
+{
+	if (! this.check_reg(n)) {
+		return;
+	}
+	this[n] = 0;
+	this[n + "h"] = 0;
+	this[n + "i"] = 0;
+};
+
+Hp12c_machine.prototype.sto_Swap_reg = function (i, n)
+{
+	if (! this.check_reg(n)) {
+		return;
+	}
+	var tr = {r: this.stomemory[i], h: this.stomemoryh[i]};
+	var ts = {r: this[n], h: this[n + "h"]};
+
+	if (this.notation >= H.NOTATION_INT) {
+		// yes, this is right
+		// this has also the side effect of casting to int
+		this.cast_wordsize(tr);
+		this.cast_wordsize(ts);
+	}
+
+	this.stomemory[i] = ts.r;
+	this.stomemoryh[i] = ts.h;
+	this[n] = tr.r;
+	this[n + "h"] = tr.h;
+};
+
+Hp12c_machine.prototype.sto_To_reg = function (i, n)
+{
+	if (! this.check_reg(n)) {
+		return;
+	}
+
+	var t = {r: this.stomemory[i], h: this.stomemoryh[i]};
+
+	if (this.notation >= H.NOTATION_INT) {
+		// yes, this is right
+		// this has also the side effect of casting to int
+		this.cast_wordsize(t);
+	}
+
+	this[n] = t.r;
+	this[n + "h"] = t.h; // 16C integer
+};
+
+Hp12c_machine.prototype.reg_To_sto = function (n, i)
+{
+	if (! this.check_reg(n)) {
+		return;
+	}
+
+	var t = {r: this[n], h: this[n + "h"]};
+
+	if (this.notation >= H.NOTATION_INT) {
+		// yes, this is right
+		// this has also the side effect of casting to int
+		this.cast_wordsize(t);
+	}
+
+	this.stomemory[i] = t.r;
+	this.stomemoryh[i] = t.h;
+};
+
+Hp12c_machine.prototype.reg_To_reg = function (nf, nt)
+{
+	if (! this.check_reg(nf) || ! this.check_reg(nt)) {
+		return;
+	}
+
+	var t = {r: this[nf], h: this[nf + "h"], i: this[nf + "i"]};
+
+	if (this.notation >= H.NOTATION_INT) {
+		// yes, this is right
+		// this has also the side effect of casting to int
+		this.cast_wordsize(t);
+	}
+
+	this[nt] = t.r;
+	this[nt + "h"] = t.h;
+	this[nt + "i"] = t.i;
+};
+
+Hp12c_machine.prototype.reg_tuple = function (n)
+{
+	if (! this.check_reg(n)) {
+		return null;
+	}
+	var t = {};
+	t.r = this[n];
+	t.i = this[n + "i"];
+	t.h = this[n + "h"];
+
+	if (this.notation >= H.NOTATION_INT) {
+		// yes, this is right
+		// this has also the side effect of casting to int
+		this.cast_wordsize(t);
+	}
+
+	return t;
+};
+
+Hp12c_machine.prototype.reg_real = function (n)
+{
+	if (! this.check_reg(n)) {
+		return null;
+	}
+	return this.reg_tuple(n).r;
+};
+
+Hp12c_machine.prototype.cast_wordsize = function (t)
+{
+	H.cast_wordsize(t, this.wordsize);
+};
+
+Hp12c_machine.prototype.cast_wordsize_in_accumulators = function ()
+{
+	var i;
+	var regs = ["x", "y", "z", "w", "last_x"];
+
+	for (i = 0; i < regs.length; ++i) {
+		// getter and setter cast to wordsize, so no need to
+		// do that explicitly
+		this.reg_Set_tuple(regs[i], this.reg_tuple(regs[i]));
+	}
+
+	// storage is not cast immediately. If the user goes back
+	// to bigger wordsize he should get the original values.
+	/*
+	for (i = 0; i < this.sto_mem_len(); ++i) {
+		this.sto_Set_tuple(i, this.sto_tuple(i));
+	}
+	*/
+};
+
+Hp12c_machine.prototype.reg_Set_tuple = function (n, t)
+{
+	if (! this.check_reg(n)) {
+		return;
+	}
+
+	if (this.notation >= H.NOTATION_INT) {
+		// yes, this is right
+		this.cast_wordsize(t);
+	}
+
+	this[n] = t.r;
+	this[n + "i"] = t.i;
+	this[n + "h"] = t.h;
+};
+
+Hp12c_machine.prototype.reg_Set_real = function (n, v)
+{
+	// FIXM15 callee might want to preserve complex part? (15c)
+	if (! this.check_reg(n)) {
+		return null;
+	}
+	return this.reg_Set_tuple(n, {r: v, i: 0, h: 0});
+};
+
+Hp12c_machine.prototype.sto_tuple = function (i)
+{
+	var t = {};
+	t.r = this.stomemory[i];
+	t.h = this.stomemoryh[i];
+	t.i = 0; // filler to make it compatible with reg tuple
+
+	if (this.notation >= H.NOTATION_INT) {
+		this.cast_wordsize(t);
+	}
+
+	return t;
+};
+
+Hp12c_machine.prototype.sto_Set_tuple = function (i, t)
+{
+	if (this.notation >= H.NOTATION_INT) {
+		this.cast_wordsize(t);
+	}
+
+	this.stomemory[i] = t.r;
+	this.stomemoryh[i] = t.h;
+	// t.i not used
+};
+
+Hp12c_machine.prototype.sto_mem_ref = function ()
+{
+	// Used by floating-point functions only, so this is ok
+	return this.stomemory;
+};
+
+Hp12c_machine.prototype.sto_mem_len = function ()
+{
+	return this.stomemory.length;
+};
 
 Hp12c_machine.prototype.program_limit = function ()
 {
-	if (H.type == "11c") {
+	if (H.type === "11c" || H.type === "15c" || H.type === "16c") {
 		return Math.min(H.ram_MAX - 1, this.program_size - 1);
 	}
 	return H.ram_MAX - 1;
@@ -1969,7 +2602,7 @@ Hp12c_machine.prototype.program_limit = function ()
 
 Hp12c_machine.prototype.ram_available = function ()
 {
-	if (H.type == "11c") {
+	if (H.type === "11c" || H.type === "15c" || H.type === "16c") {
 		return Math.min(H.ram_MAX - this.program_size);
 	}
 	return H.ram_MAX - 1;
@@ -1985,8 +2618,10 @@ Hp12c_machine.prototype.incr_ip = function (delta)
 	}
 };
 
+/* Called when H.display is already in place */
 Hp12c_machine.prototype.init = function ()
 {
+	this.init_memory();
 	this.clear_prog(1);
 	this.clear_reg(); // implies reg, sto, fin
 	this.clear_stack();
@@ -2003,11 +2638,14 @@ Hp12c_machine.prototype.clear_fin = function ()
 
 Hp12c_machine.prototype.clear_statistics = function ()
 {
-	// statistics share memory with STO memory
+	// statistics share memory with STO memory (FIXM15 15C?)
 	for (var e = H.STAT_MIN; e <= H.STAT_MAX; ++e) {
-		this.stomemory[e] = 0;
+		this.sto_Reset(e);
 	}
-	this.x = this.y = this.z = this.w = 0;
+	this.reg_Reset("x");
+	this.reg_Reset("y");
+	this.reg_Reset("z");
+	this.reg_Reset("w");
 	this.display_result();
 };
 
@@ -2028,19 +2666,29 @@ Hp12c_machine.prototype.clear_prog = function (in_pgrm)
 Hp12c_machine.prototype.clear_sto = function ()
 {
 	for (var e = 0; e < H.MEM_MAX; ++e) {
-		this.stomemory[e] = 0;
+		this.sto_Reset(e);
 		this.njmemory[e] = 1; // position 0 is read-only and always returns 1.
 	}
 };
 
-Hp12c_machine.prototype.cli = function ()
+Hp12c_machine.prototype.cli = function (motive)
 {
-	H.keyboard.disable();
+	this.sti_level--;
+	// console.log("cli " + this.sti_level + " " + motive);
+	// this is cumulative i.e. two calls to cli(x) must be
+	// counterbalanced by two sti(x)'s
+	if (this.sti_level === 0) {
+		H.keyboard.disable();
+	}
 };
 
-Hp12c_machine.prototype.sti = function ()
+Hp12c_machine.prototype.sti = function (motive)
 {
-	H.keyboard.enable();
+	this.sti_level++;
+	// console.log("sti " + this.sti_level + " " + motive);
+	if (this.sti_level === 1) {
+		H.keyboard.enable();
+	}
 };
 
 Hp12c_machine.prototype.clear_typing = function ()
@@ -2055,14 +2703,26 @@ Hp12c_machine.prototype.clear_typing = function ()
 
 Hp12c_machine.prototype.display_result = function ()
 {
-	this.pushed = 0;
+	this.display_result_s(true, true);
+};
+
+Hp12c_machine.prototype.display_result_s = function (reset_window, enable_pushed)
+{
+	if (H.type === "16c") {
+		if (reset_window) {
+			this.intwindow = 0;
+		}
+	}
+	if (enable_pushed) {
+		this.pushed = 0;
+	}
 	this.clear_typing();
-	H.display.displayNumber(this.x);
+	H.display.displayNumber(this.reg_tuple("x"));
 };
 
 Hp12c_machine.prototype.display_all = function ()
 {
-	H.display.displayNumber(this.x);
+	H.display.displayNumber(this.reg_tuple("x"));
 	this.display_modifier();
 	this.display_begin();
 	this.display_dmyc();
@@ -2070,20 +2730,22 @@ Hp12c_machine.prototype.display_all = function ()
 	this.display_algmode();
 	this.display_trigo();
 	this.display_user();
-};
-
-Hp12c_machine.prototype.pse2 = function ()
-{
-	this.sti();
-	this.display_result();
+	this.display_flags();
+	this.display_wordstatus();
 };
 
 Hp12c_machine.prototype.pse = function ()
 {
-	this.cli();
+	this.cli("pse");
 	var a = this;
 	window.setTimeout(function () {
-		a.pse2();
+		// do after dispatcher clears modifier
+		H.display.show_pse();
+	}, 0);
+	window.setTimeout(function () {
+		a.sti("pse");
+		a.display_modifier();
+		a.display_result_s(false, false);
 	}, 1000);
 };
 
@@ -2095,6 +2757,21 @@ Hp12c_machine.prototype.toggle_decimal_character = function ()
 	console.log("Storage saved");
 };
 
+Hp12c_machine.prototype.toggle_decimal_and_altdisplay = function ()
+{
+	// toggles altdisplay and comma alternatively
+	if (this.altdisplay) {
+		this.altdisplay = 0;
+		this.display_result_s(false, false);
+		this.display_wordstatus();
+		H.storage.save();
+	} else {
+		this.altdisplay = 1;
+		this.display_wordstatus();
+		this.toggle_decimal_character();
+	}
+};
+
 Hp12c_machine.prototype.display_result_date = function (dd)
 {
 	this.clear_typing();
@@ -2103,19 +2780,23 @@ Hp12c_machine.prototype.display_result_date = function (dd)
 
 Hp12c_machine.prototype.clear_stack = function ()
 {
-	this.last_x = this.x = this.y = this.z = this.w = 0;
+	this.reg_Reset("x");
+	this.reg_Reset("y");
+	this.reg_Reset("z");
+	this.reg_Reset("w");
+	this.reg_Reset("last_x");
 };
 
 Hp12c_machine.prototype.clear_reg = function ()
 {
-	if (H.type !== "11c") {
+	if (H.type !== "11c" && H.type !== "15c" && H.type !== "16c") {
 		this.clear_stack();
 	}
 	this.alg_op = 0;
 	this.index = 0;
 	this.clear_fin();
 	this.clear_sto();
-	this.display_result();
+	this.display_result_s(false, false);
 };
 
 // HP-12C Errors
@@ -2131,8 +2812,9 @@ Hp12c_machine.prototype.clear_reg = function ()
 
 Hp12c_machine.prototype.display_pgrm = function ()
 {
-	H.display.show_pgrm(this.program_mode == H.PROGRAMMING, this.program_mode >= H.RUNNING,
-							this.ip);
+	H.display.show_pgrm(this.program_mode == H.PROGRAMMING,
+				this.program_mode >= H.RUNNING,
+				this.ip);
 };
 
 Hp12c_machine.prototype.display_trigo = function ()
@@ -2166,7 +2848,7 @@ Hp12c_machine.prototype.reset_error = function ()
 {
 	this.error_in_display = 0;
 	if (this.program_mode == H.INTERACTIVE) {
-		this.display_result();
+		this.display_result_s(false, false);
 	} else if (this.program_mode == H.PROGRAMMING) {
 		this.display_program_opcode();
 	}
@@ -2185,6 +2867,43 @@ Hp12c_machine.prototype.display_modifier = function ()
 Hp12c_machine.prototype.display_begin = function ()
 {
 	H.display.show_begin(this.begin);
+};
+
+Hp12c_machine.prototype.display_carry = function ()
+{
+	if (H.type === "16c") {
+		H.display.show_carry(this.flags[H.FLAG_CARRY]);
+	}
+};
+
+Hp12c_machine.prototype.display_overflow = function ()
+{
+	if (H.type === "16c") {
+		H.display.show_overflow(this.flags[H.FLAG_OVERFLOW]);
+	}
+};
+
+Hp12c_machine.prototype.display_wordstatus = function ()
+{
+	if (H.type === "16c") {
+		var st = "";
+		if (this.notation >= H.NOTATION_INT && this.altdisplay) {
+			st = "" + this.wordsize + ",";
+			if (this.negative_repr) {
+				st += this.negative_repr;
+			} else {
+				st += "u";
+			}
+			st += "<br>w=" + this.intwindow;
+		}
+		H.display.show_wordstatus(st);
+	}
+};
+
+Hp12c_machine.prototype.display_flags = function ()
+{
+	this.display_carry();
+	this.display_overflow();
 };
 
 Hp12c_machine.prototype.display_dmyc = function ()
@@ -2257,15 +2976,33 @@ Hp12c_machine.prototype.set_modifier = function (v)
 
 Hp12c_machine.prototype.set_decimals = function (d, notation)
 {
+	var enable_push = false;
+	if (this.notation >= H.NOTATION_INT) {
+		// 16C case
+		this.prepare_for_float_mode();
+		this.enable_push = true;
+	}
 	this.notation = notation;
 	this.decimals = d;
-	this.display_result();
+	this.display_wordstatus();
+	this.display_result_s(true, enable_push);
+};
+
+Hp12c_machine.prototype.set_decimals_index = function (notation)
+{
+	// FIXM15
+	// FIXM15 caller must pass notation
 };
 
 Hp12c_machine.prototype.set_decimals_exponential = function ()
 {
+	if (this.notation >= H.NOTATION_INT) {
+		this.prepare_for_float_mode();
+		this.intwindow = 0;
+	}
 	this.notation = H.NOTATION_SCI;
 	this.decimals = 10;
+	this.display_wordstatus();
 	this.display_result();
 };
 
@@ -2280,33 +3017,102 @@ Hp12c_machine.prototype.rst_modifier = function (df)
 
 Hp12c_machine.prototype.push = function ()
 {
-	this.w = this.z;
-	this.z = this.y;
-	this.y = this.x;
+	this.reg_To_reg("z", "w");
+	this.reg_To_reg("y", "z");
+	this.reg_To_reg("x", "y");
 	this.pushed = 1;
+};
+
+Hp12c_machine.prototype.digit_add_chk_int = function (digit, typed)
+{
+	var digit_bits = H.digit_bits[this.notation];
+	var max_digits = Math.ceil(this.wordsize / digit_bits);
+
+	if (typed.length >= max_digits) {
+		// all allowable digits typed 
+		digit = null;
+	}
+
+	if (digit !== null) {
+		digit = digit.toString(16);
+	}
+
+	return digit;
+};
+
+Hp12c_machine.prototype.chk_int_overflow = function (typed)
+{
+	var digit_bits = H.digit_bits[this.notation];
+	var max_digits = this.wordsize / digit_bits;
+	var max_digits_c = Math.ceil(max_digits);
+	var max_digits_f = Math.floor(max_digits);
+
+	if ((typed.length >= max_digits_c) && (max_digits_c !== max_digits_f)) {
+		// test if MSB digit "splits" ie. has more bits than there
+		// are bits still allowed by the word size. In this case,
+		// MSB digit is cast to zero.
+
+		// A simple bit count is not ok because in radix=10 every bit
+		// depends on all digits, so it is not practical to detect overflow
+		// based on the fact that 1 decimal digit ~= 3.3 bits
+
+		var radix = H.radix[this.notation];
+		var x1 = H.string_to_integer(typed, this.negative_repr,
+						this.wordsize, radix);
+		var x2 = H.string_to_integer(typed, this.negative_repr,
+						this.wordsize + digit_bits,
+						radix);
+		if (x1.r !== x2.r || x1.h !== x2.h) {
+			typed = "0" + typed.substr(1);
+		}
+	}
+
+	return typed;
 };
 
 Hp12c_machine.prototype.digit_add = function (d)
 {
-	var number_signal;
+	var radix = H.radix[this.notation];
+	if (! radix) {
+		// for all non-integer modes
+		radix = 10;
+	}
+
+	if (d >= radix) {
+		return;
+	}
 
 	if (this.xmode == -1) {
-		if (! this.pushed) {
-			this.push(); // push stack when result is immediately followed by typing
+		if (this.notation >= H.NOTATION_INT) {
+			d = this.digit_add_chk_int(d, this.typed_mantissa);
 		}
-		// just displayed a result
-		this.clear_typing();
-		this.typed_mantissa = "" + d;
-		this.xmode = 0;
+		if (d !== null) {
+			if (! this.pushed) {
+				this.push(); // push stack when result is immediately followed by typing
+			}
+			// just displayed a result
+			this.clear_typing();
+			this.typed_mantissa = this.chk_int_overflow("" + d);
+			this.xmode = 0;
+		}
 	} else if (this.xmode === 0) {
-		if (this.typed_mantissa.length < H.display.display_len) {
-			this.typed_mantissa += "" + d;
+		if (this.notation >= H.NOTATION_INT) {
+			d = this.digit_add_chk_int(d, this.typed_mantissa);
+			if (d !== null) {
+				this.typed_mantissa = this.chk_int_overflow(this.typed_mantissa + "" + d);
+			}
+		} else {
+			if (this.typed_mantissa.length < H.display.display_len) {
+				this.typed_mantissa += "" + d;
+			}
 		}
-	} else if (this.xmode == 1) {
+	} else if (this.xmode === 1) {
+		// integer mode never reaches this branch due to decimal_point_mode
 		if ((this.typed_mantissa.length + this.typed_decimals.length) < H.display.display_len) {
 			this.typed_decimals += "" + d;
 		}
-	} else if (this.xmode == 100) {
+	} else if (this.xmode === 100) {
+		// integer mode never gets this branch
 		this.typed_exponent = this.typed_exponent.substr(1, 1);
 		this.typed_exponent += "" + d;
 	}
@@ -2314,11 +3120,27 @@ Hp12c_machine.prototype.digit_add = function (d)
 	this.display_typing();
 };
 
+Hp12c_machine.prototype.display_typing_integer = function ()
+{
+	var tu = H.string_to_integer(this.typed_mantissa, this.negative_repr,
+					this.wordsize, H.radix[this.notation]);
+	this.reg_Set_tuple("x", tu);
+
+	H.display.displayTypedNumber_integer(this.reg_tuple("x"), this.xmode,
+						this.typed_mantissa.length);
+};
+
 Hp12c_machine.prototype.display_typing = function ()
 {
-	this.x = this.typed_mantissa_signal * 
+	if (H.type === "16c" && this.notation >= H.NOTATION_INT) {
+		this.display_typing_integer();
+		return;
+	}
+
+	var x = this.typed_mantissa_signal * 
 		parseFloat(this.typed_mantissa + "." + this.typed_decimals + "0") * 
 		Math.pow(10, parseInt("0" + this.typed_exponent, 10) * this.typed_exponent_signal);
+	this.reg_Set_real("x", x);
 	H.display.displayTypedNumber(this.typed_mantissa_signal, this.typed_mantissa,
 		this.typed_decimals, this.typed_exponent, this.typed_exponent_signal,
 		this.xmode);
@@ -2330,15 +3152,16 @@ Hp12c_machine.prototype.digit_delete = function ()
 	var i;
 
 	if (this.xmode == -1) {
-		if (H.type == "11c") {
-			// this key actually exists in 11c (only)
-			this.x = 0;
+		if (H.type === "11c" || H.type === "15c" || H.type === "16c") {
+			// backspace key actually exists in 11c/15c/16c
+			this.reg_Set_tuple("x", {r: 0, h: 0, i: 0});
+			// FIXM15 i=0?
 
 			// changes to in-place number editing
 			// (does not push again when new number is typed)
 			this.pushed = 1;
 
-			H.display.displayNumber(this.x);
+			H.display.displayNumber(this.reg_tuple("x"));
 		} else {
 			// does nothing
 		}
@@ -2350,7 +3173,7 @@ Hp12c_machine.prototype.digit_delete = function ()
 		if (i >= 0) {
 			this.typed_mantissa = this.typed_mantissa.substr(0, i);
 		}
-	} else if (this.xmode == 1) {
+	} else if (this.xmode === 1) {
 		i = this.typed_decimals.length - 1;
 		if (i < 0) {
 			// decimal point mode but no decimal typed
@@ -2358,7 +3181,7 @@ Hp12c_machine.prototype.digit_delete = function ()
 		} else {
 			this.typed_decimals = this.typed_decimals.substr(0, i);
 		}
-	} else if (this.xmode == 100) {
+	} else if (this.xmode === 100) {
 		this.typed_exponent = "";
 		if (this.typed_decimals.length > 0) {
 			this.xmode = 1;
@@ -2372,6 +3195,11 @@ Hp12c_machine.prototype.digit_delete = function ()
 
 Hp12c_machine.prototype.input_exponential = function ()
 {
+	if (this.notation >= H.NOTATION_INT) {
+		// no-op in 16C integer mode
+		return;
+	}
+
 	if (this.xmode == -1) {
 		if (! this.pushed) {
 			this.push(); // push stack when result is immediately followed by typing
@@ -2418,6 +3246,11 @@ Hp12c_machine.prototype.input_exponential = function ()
 
 Hp12c_machine.prototype.decimal_point_mode = function ()
 {
+	if (this.notation >= H.NOTATION_INT) {
+		// no-op in 16C integer mode
+		return;
+	}
+
 	if (this.xmode == -1) {
 		// just displayed a result
 		if (! this.pushed) {
@@ -2434,11 +3267,26 @@ Hp12c_machine.prototype.decimal_point_mode = function ()
 	this.display_typing();
 };
 
+Hp12c_machine.prototype.chs_integer = function ()
+{
+	// CHS always goes to result mode
+	this.save_lastx();
+	var xt = this.reg_tuple("x");
+	var calc = H.integer_inv([xt.h, xt.r], this.negative_repr, this.wordsize);
+	this.reg_Set_tuple("x", calc.result);
+	this.set_overflow(calc.overflow);
+	this.display_result();
+};
+
 Hp12c_machine.prototype.chs = function ()
 {
-	if (this.xmode == -1) {
-		// result mode
-		this.x = -this.x;
+	if (this.notation >= H.NOTATION_INT) {
+		this.chs_integer();
+		return;
+	}
+
+	if (this.xmode === -1) {
+		this.reg_Set_real("x", -this.reg_real("x"));
 		this.display_result();
 		return;
 	}
@@ -2455,29 +3303,33 @@ Hp12c_machine.prototype.chs = function ()
 
 Hp12c_machine.prototype.pop = function ()
 {
-	this.x = this.y;
-	this.y = this.z;
-	this.z = this.w;
+	this.reg_To_reg("y", "x");
+	this.reg_To_reg("z", "y");
+	this.reg_To_reg("w", "z");
 };
 
 Hp12c_machine.prototype.save_lastx = function ()
 {
 	if (! this.algmode) {
-		this.last_x = this.x;
+		this.reg_To_reg("x", "last_x");
 	}
 };
 
 Hp12c_machine.prototype.lstx = function ()
 {
 	this.push();
-	this.x = this.last_x;
+	this.reg_To_reg("last_x", "x");
 	this.display_result();
 };
 
 Hp12c_machine.prototype.shv = function ()
 {
 	this.push();
-	this.x = H.sve;
+	if (this.notation >= H.NOTATION_INT) {
+		this.reg_Set_real("x", H.sve * 10);
+	} else {
+		this.reg_Set_real("x", H.sve);
+	}
 	this.display_result();
 };
 
@@ -2485,19 +3337,17 @@ Hp12c_machine.prototype.apocryphal = function (i)
 {
 	// to be overridden as necessary; this is here just for testing
 	this.push();
-	this.x = 140 + i;
-	this.display_result();
-};
-
-Hp12c_machine.prototype.clear_prefix2 = function ()
-{
-	this.sti();
+	this.reg_Set_real("x", 140 + i);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.clear_prefix = function ()
 {
-	var n = Math.abs(this.x);
+	if (this.notation >= H.NOTATION_INT) {
+		return;	
+	}
+
+	var n = Math.abs(this.reg_real("x"));
 	var order = Math.log(n) / Math.log(10);
 
 	if (H.badnumber(order)) {
@@ -2511,21 +3361,22 @@ Hp12c_machine.prototype.clear_prefix = function ()
 
 	n = n * Math.pow(10, H.display.display_len - Math.ceil(order));
 
-	this.cli();
+	this.cli("clear_prefix");
 
 	H.display.show(H.zeropad(n.toFixed(0), H.display.display_len));
 
 	var self = this;
 	window.setTimeout(function () {
-		self.clear_prefix2();
+		self.sti("clear_prefix");
+		self.display_result_s(false, false);
 	}, 1000);
 };
 
 Hp12c_machine.prototype.x_exchange_y = function ()
 {
-	var tmp = this.x;
-	this.x = this.y;
-	this.y = tmp;
+	var tmp = this.reg_tuple("x");
+	this.reg_To_reg("y", "x");
+	this.reg_Set_tuple("y", tmp);
 	this.display_result();
 };
 
@@ -2547,23 +3398,26 @@ Hp12c_machine.prototype.x_exchange_index = function ()
 		return;
 	}
 
-	var tmp = this.x;
-	this.x = this.stomemory[index];
-	this.stomemory[this.index] = tmp;
+	this.sto_Swap_reg(index, "x");
 	this.display_result();
 };
 
 Hp12c_machine.prototype.x_exchange_index_itself = function ()
 {
-	var tmp = this.x;
-	this.x = this.index;
+	// TODO index should contain all bits from an integer x
+
+	// (reg_Set_real calls reg_Set_tuple which casts an eventual
+	// float index to integer.)
+
+	var tmp = this.reg_real("x");
+	this.reg_Set_real("x", this.index);
 	this.index = tmp;
 	this.display_result();
 };
 
 Hp12c_machine.prototype.mem_info = function ()
 {
-	H.display.display_meminfo(this.ram_available(), this.stomemory.length);
+	H.display.display_meminfo(this.ram_available(), this.sto_mem_len());
 	this.error_in_display = 1;
 };
 
@@ -2574,7 +3428,14 @@ Hp12c_machine.prototype.sf = function (i)
 		return;
 	}
 
+	this.do_sf(i);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.do_sf = function (i)
+{
 	this.flags[i] = 1;
+	this.display_flags();
 };
 
 Hp12c_machine.prototype.cf = function (i)
@@ -2584,7 +3445,14 @@ Hp12c_machine.prototype.cf = function (i)
 		return;
 	}
 
+	this.do_cf(i);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.do_cf = function (i)
+{
 	this.flags[i] = 0;
+	this.display_flags();
 };
 
 Hp12c_machine.prototype.f_question = function (i)
@@ -2595,8 +3463,6 @@ Hp12c_machine.prototype.f_question = function (i)
 	}
 
 	this.incr_ip(this.flags[i] ? 0 : 1);
-
-	this.display_result();
 };
 
 Hp12c_machine.prototype.dissect_index = function ()
@@ -2643,41 +3509,60 @@ Hp12c_machine.prototype.f_dse = function ()
 
 Hp12c_machine.prototype.r_down = function ()
 {
-	var tmp = this.x;
-	this.x = this.y;
-	this.y = this.z;
-	this.z = this.w;
-	this.w = tmp;
+	var tmp = this.reg_tuple("x");
+	this.reg_To_reg("y", "x");
+	this.reg_To_reg("z", "y");
+	this.reg_To_reg("w", "z");
+	this.reg_Set_tuple("w", tmp);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.r_up = function ()
 {
-	var tmp = this.x;
-	this.x = this.w;
-	this.w = this.z;
-	this.z = this.y;
-	this.y = tmp;
+	var tmp = this.reg_tuple("x");
+	this.reg_To_reg("w", "x");
+	this.reg_To_reg("z", "w");
+	this.reg_To_reg("y", "z");
+	this.reg_Set_tuple("y", tmp);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.clx = function ()
 {
-	this.x = 0;
+	this.reg_Reset("x");
 	this.display_result();
 	this.pushed = 1; // do not push if user retries typing
 };
 
-Hp12c_machine.prototype.arithmetic = function (res, a, b)
+Hp12c_machine.prototype.finish_arithmetic = function (res, a, b)
+{
+	// FIXM15 15C complex
+
+	if (H.type === "16c") {
+		var over = Math.abs(res) > H.value_max;
+		this.set_overflow(over);
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_real("x", H.arithmetic_round(res, a, b));
+	this.display_result();
+
+};
+
+Hp12c_machine.prototype.finish_arithmetic_int = function (calc)
 {
 	this.save_lastx();
 	this.pop();
-	this.x = H.arithmetic_round(res, a, b);
+	this.set_carry(calc.carry);
+	this.set_overflow(calc.overflow);
+	this.reg_Set_tuple("x", calc.result);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.alg_resolve = function ()
 {
+	// 12C-only algebric mode.
 	var res;
 	var ok = 1;
 
@@ -2685,27 +3570,30 @@ Hp12c_machine.prototype.alg_resolve = function ()
 		return ok;
 	}
 
+	var x = this.reg_real("x");
+	var y = this.reg_real("y");
+
 	if (this.alg_op == this.ALG_PLUS) {
-		this.arithmetic(this.y + this.x, this.x, this.y);
+		this.finish_arithmetic(y + x, x, y);
 	} else if (this.alg_op == this.ALG_MINUS) {
-		this.arithmetic(this.y - this.x, this.x, this.y);
+		this.finish_arithmetic(y - x, x, y);
 	} else if (this.alg_op == this.ALG_MULTIPLY) {
-		this.arithmetic(this.y * this.x, 0, 0);
+		this.finish_arithmetic(y * x, 0, 0);
 	} else if (this.alg_op == this.ALG_DIVIDE) {
-		res = this.y / this.x;
+		res = y / x;
 		if (H.badnumber(res)) {
 			this.display_error(H.ERROR_DIVZERO);
 			ok = 0;
 		} else {
-			this.arithmetic(res, 0, 0);
+			this.finish_arithmetic(res, 0, 0);
 		}
 	} else if (this.alg_op == this.ALG_POWER) {
-		res = Math.pow(this.y, this.x);
+		res = Math.pow(y, x);
 		if (H.badnumber(res)) {
 			this.display_error(H.ERROR_DIVZERO);
 			ok = 0;
 		} else {
-			this.arithmetic(res, 0, 0);
+			this.finish_arithmetic(res, 0, 0);
 		}
 	}
 	this.alg_op = 0;
@@ -2728,6 +3616,17 @@ Hp12c_machine.prototype.enter = function (g_modifier)
 
 Hp12c_machine.prototype.plus = function ()
 { 
+	// FIXM15 15c complex mode
+
+	if (this.notation >= H.NOTATION_INT) {
+		var xt = this.reg_tuple("x");
+		var yt = this.reg_tuple("y");
+		var calc = H.integer_plus([xt.h, xt.r], [yt.h, yt.r],
+						this.negative_repr, this.wordsize);
+		this.finish_arithmetic_int(calc);
+		return;
+	}
+
 	if (this.algmode) {
 		if (! this.alg_resolve()) {
 			return;
@@ -2736,12 +3635,25 @@ Hp12c_machine.prototype.plus = function ()
 		this.push();
 		this.display_result();
 	} else {
-		this.arithmetic(this.y + this.x, this.x, this.y);
+		var x = this.reg_real("x");
+		var y = this.reg_real("y");
+		this.finish_arithmetic(y + x, x, y);
 	}
 };
 
 Hp12c_machine.prototype.minus = function ()
 {
+	// FIXM15 15c complex mode
+
+	if (this.notation >= H.NOTATION_INT) {
+		var xt = this.reg_tuple("x");
+		var yt = this.reg_tuple("y");
+		var calc = H.integer_minus([yt.h, yt.r], [xt.h, xt.r],
+						this.negative_repr, this.wordsize);
+		this.finish_arithmetic_int(calc);
+		return;
+	}
+
 	if (this.algmode) {
 		if (! this.alg_resolve()) {
 			return;
@@ -2750,12 +3662,27 @@ Hp12c_machine.prototype.minus = function ()
 		this.push();
 		this.display_result();
 	} else {
-		this.arithmetic(this.y - this.x, this.x, this.y);
+		var x = this.reg_real("x");
+		var y = this.reg_real("y");
+		this.finish_arithmetic(y - x, x, y);
 	}
 };
 
 Hp12c_machine.prototype.multiply = function ()
 {
+	// FIXM15 15c complex mode
+
+	if (this.notation >= H.NOTATION_INT) {
+		var xt = this.reg_tuple("x");
+		var yt = this.reg_tuple("y");
+		var calc = H.integer_multiply([xt.h, xt.r], [yt.h, yt.r],
+						this.negative_repr, this.wordsize);
+		// make sure multiplication does not change carry
+		calc.carry = this.get_carry();
+		this.finish_arithmetic_int(calc);
+		return;
+	}
+
 	if (this.algmode) {
 		if (! this.alg_resolve()) {
 			return;
@@ -2764,12 +3691,31 @@ Hp12c_machine.prototype.multiply = function ()
 		this.push();
 		this.display_result();
 	} else {
-		this.arithmetic(this.y * this.x, 0, 0);
+		var x = this.reg_real("x");
+		var y = this.reg_real("y");
+		this.finish_arithmetic(y * x, 0, 0);
 	}
 };
 
 Hp12c_machine.prototype.divide = function ()
 {
+	// FIXM15 15c complex mode
+
+	if (this.notation >= H.NOTATION_INT) {
+		var xt = this.reg_tuple("x");
+		var yt = this.reg_tuple("y");
+		var calc = H.integer_divide([yt.h, yt.r], [xt.h, xt.r],
+						this.negative_repr, this.wordsize,
+						false);
+		if (calc.overflow) {
+			this.display_error(H.ERROR_DIVZERO);
+		} else {
+			calc.result = calc.result[0];
+			this.finish_arithmetic_int(calc);
+		}
+		return;
+	}
+
 	if (this.algmode) {
 		if (! this.alg_resolve()) {
 			return;
@@ -2778,17 +3724,18 @@ Hp12c_machine.prototype.divide = function ()
 		this.push();
 		this.display_result();
 	} else {
-		var res = this.y / this.x;
+		var res = this.reg_real("y") / this.reg_real("x");
 		if (H.badnumber(res)) {
 			this.display_error(H.ERROR_DIVZERO);
 		} else {
-			this.arithmetic(res, 0, 0);
+			this.finish_arithmetic(res, 0, 0);
 		}
 	}
 };
 
 Hp12c_machine.prototype.poweryx = function ()
 { 
+	// FIXM15 15c complex mode
 	if (this.algmode) {
 		if (! this.alg_resolve()) {
 			return;
@@ -2797,220 +3744,276 @@ Hp12c_machine.prototype.poweryx = function ()
 		this.push();
 		this.display_result();
 	} else {
-		var res = Math.pow(this.y, this.x);
+		var res = Math.pow(this.reg_real("y"), this.reg_real("x"));
 		if (H.badnumber(res)) {
 			this.display_error(H.ERROR_DIVZERO);
 		} else {
-			this.arithmetic(res, 0, 0);
+			this.finish_arithmetic(res, 0, 0);
 		}
 	}
 };
 
-Hp12c_machine.prototype.power10 = function () // 11C
+Hp12c_machine.prototype.power10 = function ()
 { 
-	var res = Math.pow(10.0, this.x);
+	// FIXM15 15c complex mode
+	var res = Math.pow(10.0, this.reg_real("x"));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.reciprocal = function ()
 {
-	var res = 1 / this.x;
+	// FIXM15 15c complex mode
+	if (this.notation >= H.NOTATION_INT) {
+		// no-op in 16C integer mode
+		return;
+	}
+
+	var res = 1 / this.reg_real("x");
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.square = function ()
 {
-	var res = Math.pow(this.x, 2);
+	// FIXM15 15c complex mode
+	var res = Math.pow(this.reg_real("x"), 2);
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.sqroot = function ()
 {
-	var res = Math.pow(this.x, 0.5);
+	if (this.notation >= H.NOTATION_INT) {
+		var xt = this.reg_tuple("x");
+		var calc = H.integer_sqrt([xt.h, xt.r],
+						this.negative_repr,
+						this.wordsize);
+		if (calc.overflow) {
+			this.display_error(H.ERROR_DIVZERO);
+		} else {
+			this.save_lastx();
+			this.reg_Set_tuple("x", calc.result);
+			this.set_carry(calc.carry);
+			this.display_result();
+		}
+		return;
+	}
+
+	// FIXM15 complex
+	var res = Math.pow(this.reg_real("x"), 0.5);
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.exp = function ()
 {
-	var res = Math.exp(this.x);
+	// FIXM15 15c complex mode
+	var res = Math.exp(this.reg_real("x"));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.ln = function ()
 {
-	var res = Math.log(this.x);
+	// FIXM15 15c complex mode
+	var res = Math.log(this.reg_real("x"));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
-Hp12c_machine.prototype.log10 = function () // 11C
+Hp12c_machine.prototype.log10 = function ()
 {
-	var res = Math.log(this.x) / Math.log(10);
+	// FIXM15 15c complex mode
+	var res = Math.log(this.reg_real("x")) / Math.log(10);
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
-Hp12c_machine.prototype.trig = function (f) // 11C
+Hp12c_machine.prototype.trig = function (f)
 {
-	var res = Math[f](H.radians(this.x, this.trigo));
+	// FIXM15 15c complex mode
+	var res = Math[f](H.radians(this.reg_real("x"), this.trigo));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
-Hp12c_machine.prototype.triginv = function (f) // 11C
+Hp12c_machine.prototype.triginv = function (f)
 {
-	var res = Math[f](this.x);
+	// FIXM15 15c complex mode
+	var res = Math[f](this.reg_real("x"));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = H.to_angle_mode(res, this.trigo);
+		this.reg_Set_real("x", H.to_angle_mode(res, this.trigo));
 		this.display_result();
 	}
 };
 
-Hp12c_machine.prototype.htrig = function (f) // 11C
+Hp12c_machine.prototype.htrig = function (f)
 {
-	var res = H[f].call(null, this.x);
+	// FIXM15 15c complex mode
+	var res = H[f].call(null, this.reg_real("x"));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
-Hp12c_machine.prototype.htriginv = function (f) // 11C
+Hp12c_machine.prototype.htriginv = function (f)
 {
-	var res = H[f].call(null, this.x);
+	// FIXM15 15c complex mode
+	var res = H[f].call(null, this.reg_real("x"));
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.intg = function ()
 {
+	// FIXM15 15c complex mode?
 	this.save_lastx();
-	this.x = Math.floor(Math.abs(this.x)) * H.binary_sgn(this.x);
+	this.reg_Set_real("x", Math.floor(Math.abs(this.reg_real("x"))) *
+				H.binary_sgn(this.reg_real("x")));
+	this.display_result();
+};
+
+Hp12c_machine.prototype.abs_integer = function ()
+{
+	// CHS always goes to result mode
+	var xt = this.reg_tuple("x");
+	var calc = H.integer_abs([xt.h, xt.r], this.negative_repr, this.wordsize);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", calc.result);
+	this.set_overflow(calc.overflow);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.abs = function ()
 {
+	if (this.notation >= H.NOTATION_INT) {
+		this.abs_integer();
+		return;
+	}
+
 	this.save_lastx();
-	this.x = Math.abs(this.x);
+	this.reg_Set_real("x", Math.abs(this.reg_real("x")));
 	this.display_result();
 };
 
 Hp12c_machine.prototype.to_radians = function ()
 {
+	// FIXM15 15c complex mode
 	this.save_lastx();
-	this.x = H.degrees_to_radians(this.x);
+	this.reg_Set_real("x", H.degrees_to_radians(this.reg_real("x")));
 	this.display_result();
 };
 
 Hp12c_machine.prototype.to_degrees = function ()
 {
+	// FIXM15 15c complex mode
 	this.save_lastx();
-	this.x = H.radians_to_degrees(this.x);
+	this.reg_Set_real("x", H.radians_to_degrees(this.reg_real("x")));
 	this.display_result();
 };
 
 Hp12c_machine.prototype.to_hms = function ()
 {
+	// FIXM15 15c complex mode?
 	this.save_lastx();
-	this.x = H.hour_to_hms(this.x);
+	this.reg_Set_real("x", H.hour_to_hms(this.reg_real("x")));
 	this.display_result();
 };
 
-Hp12c_machine.prototype.to_hour = function ()
+Hp12c_machine.prototype.to_hour = function () 
 {
+	// FIXM15 15c complex mode?
 	this.save_lastx();
-	this.x = H.hms_to_hour(this.x);
+	this.reg_Set_real("x", H.hms_to_hour(this.reg_real("x")));
 	this.display_result();
 };
 
 Hp12c_machine.prototype.pi = function ()
 {
 	this.push();
-	this.x = Math.PI;
+	this.reg_Set_real("x", Math.PI);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.random = function ()
 {
-	// TODO discover real random algorithm of 11c
 	this.push();
-	this.x = Math.random();
+	this.reg_Set_real("x", this.prng.random());
 	this.display_result();
 };
 
 Hp12c_machine.prototype.random_sto = function ()
 {
-	// TODO actually use x as random seed 
+	var seed = this.reg_real("x");
+	this.prng = new H.Prng(seed);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.rnd = function ()
 {
 	this.save_lastx();
-	this.x = H.cl5_round(this.x, this.decimals);
+	this.reg_Set_real("x", H.cl5_round(this.reg_real("x"), this.decimals));
 	this.display_result();
 };
 
 Hp12c_machine.prototype.polar = function ()
 {
-	var res = H.polar(this.x, this.y);
+	// FIXM15 15C complex
+	var res = H.polar(this.reg_real("x"), this.reg_real("y"));
 	var r = res[0];
 	var angle = res[1];
 
@@ -3018,16 +4021,17 @@ Hp12c_machine.prototype.polar = function ()
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = r;
-		this.y = H.to_angle_mode(angle, this.trigo);
+		this.reg_Set_real("x", r);
+		this.reg_Set_real("y", H.to_angle_mode(angle, this.trigo));
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.orthogonal = function ()
 {
-	var r = this.x;
-	var angle = H.radians(this.y, this.trigo);
+	// FIXM15 15C complex
+	var r = this.reg_real("x");
+	var angle = H.radians(this.reg_real("y"), this.trigo);
 	var res = H.orthogonal(r, angle);
 	var x = res[0];
 	var y = res[1];
@@ -3036,32 +4040,34 @@ Hp12c_machine.prototype.orthogonal = function ()
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = x;
-		this.y = y;
+		this.reg_Set_real("x", x);
+		this.reg_Set_real("y", y);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.fatorial = function ()
 {
-	if (H.type != "11c" && (this.x < 0 || this.x != Math.floor(this.x))) {
+	// FIXM15 15C complex?
+	if ((H.type !== "11c" && H.type !== "15c" && H.type !== "16c") &&
+				(this.reg_real("x") < 0 || this.reg_real("x") != Math.floor(this.reg_real("x")))) {
 		this.display_error(H.ERROR_DIVZERO);
 		return;
 	}
 
-	if (this.x > 69.95) {
+	if (this.reg_real("x") > 69.95) {
 		this.save_lastx();
-		this.x = H.value_max;
+		this.reg_Set_real("x", H.value_max);
 		this.display_result();
 		return;
 	}
 
 	var res;
 
-	if (H.type === "11c") {
-		res = H.fatorial_gamma(this.x);
+	if (H.type === "11c" || H.type === "15c") {
+		res = H.fatorial_gamma(this.reg_real("x"));
 	} else {
-		res = H.fatorial(this.x);
+		res = H.fatorial(this.reg_real("x"));
 	}
 
 	if (H.badnumber(res)) {
@@ -3070,66 +4076,74 @@ Hp12c_machine.prototype.fatorial = function ()
 	}
 
 	this.save_lastx();
-	this.x = res;
+	this.reg_Set_real("x", res);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.frac = function ()
 {
+	// FIXM15 15C complex?
 	this.save_lastx();
-	this.x = (Math.abs(this.x) - Math.floor(Math.abs(this.x))) * H.binary_sgn(this.x);
+	this.reg_Set_real("x", (Math.abs(this.reg_real("x")) -
+				Math.floor(Math.abs(this.reg_real("x")))) *
+					H.binary_sgn(this.reg_real("x")));
 	this.display_result();
 };
 
 Hp12c_machine.prototype.percent = function ()
 {
-	var res = this.y * this.x / 100;
+	// FIXM15 15C complex?
+	var res = this.reg_real("y") * this.reg_real("x") / 100;
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.percentT = function ()
 {
+	// FIXM15 15C complex?
 	if (! this.alg_resolve()) {
 		return;
 	}
 
-	var res = 100 * this.x / this.y;
+	var res = 100 * this.reg_real("x") / this.reg_real("y");
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.deltapercent = function ()
 {
+	// FIXM15 15C complex?
 	if (! this.alg_resolve()) {
 		return;
 	}
 
-	var res = 100 * (this.x / this.y) - 100;
+	var res = 100 * (this.reg_real("x") / this.reg_real("y")) - 100;
 
 	if (H.badnumber(res)) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.sto = function (pos)
 {
-	this.stomemory[pos] = this.x;
-	this.display_result();
+	// "pos" comes correctly adjusted from dispatcher even in the
+	// case of HP-16C (0..15, 16..31).
+	this.reg_To_sto("x", pos);
+	this.display_result_s(false, true);
 };
 
 Hp12c_machine.prototype.sto_index = function (pos)
@@ -3140,27 +4154,47 @@ Hp12c_machine.prototype.sto_index = function (pos)
 		return;
 	}
 
-	this.stomemory[index] = this.x;
-	this.display_result();
+	this.reg_To_sto("x", index);
+	this.display_result_s(false, true);
 };
 
 Hp12c_machine.prototype.get_index = function ()
 {
 	this.push();
-	this.x = this.index;
+	this.reg_Set_real("x", this.index);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.set_index = function ()
 {
-	this.index = this.x;
+	this.index = this.reg_real("x");
 	this.display_result();
+};
+
+Hp12c_machine.prototype.tarithmetic = function (at, bt, op)
+{
+	// FIXM15 15C complex
+	// not implemented in 16c
+	var res = {};
+	res.r = res.i = res.h = 0;
+	if (op === "+") {
+		res.r = at.r + bt.r;
+	} else if (op === "-") {
+		res.r = at.r - bt.r;
+	} else if (op === "x") {
+		res.r = at.r * bt.r;
+	} else if (op === "/") {
+		res.r = at.r / bt.r;
+	}
+	return res;
 };
 
 Hp12c_machine.prototype.stoinfix_index = function (operation)
 {
-	var index = this.fix_index();
+	// not implemented in 16c
 
+	var index = this.fix_index();
+ 
 	if (index === null) {
 		return;
 	}
@@ -3170,32 +4204,37 @@ Hp12c_machine.prototype.stoinfix_index = function (operation)
 
 Hp12c_machine.prototype.stoinfix = function (pos, operation)
 {
-	var a = this.stomemory[pos];
+	// not implemented in 16c
+
+	var a = this.sto_tuple(pos);
+	var b = this.reg_tuple("x");
+
 	if (operation ==  H.STO_PLUS) {
-		a += this.x;
+		a = this.tarithmetic(a, b, "+");
 	} else if (operation == H.STO_MINUS) {
-		a -= this.x;
+		a = this.tarithmetic(a, b, "-");
 	} else if (operation == H.STO_TIMES) {
-		a *= this.x;
+		a = this.tarithmetic(a, b, "x");
 	} else if (operation == H.STO_DIVIDE) {
-		a /= this.x;
-		if (H.badnumber(a)) {
+		a = this.tarithmetic(a, b, "/");
+		if (H.badnumber(a.r)) {
 			this.display_error(H.ERROR_DIVZERO);
 			return;
 		}
 	}
-	if (Math.abs(a) > H.value_max) {
+
+	if (Math.abs(a.r) > H.value_max) {
 		this.display_error(H.ERROR_OVERFLOW);
 		return;
 	}
 
-	this.stomemory[pos] = a;
+	this.sto_Set_tuple(pos, a);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.stoCF0 = function ()
 {
-	this.stomemory[0] = this.x;
+	this.reg_To_sto("x", 0);
 	this.finmemory[H.FIN_N] = 0;
 	this.display_result();
 };
@@ -3208,7 +4247,7 @@ Hp12c_machine.prototype.stoCFj = function ()
 		this.display_error(H.ERROR_MEMORY);
 	} else {
 		this.finmemory[H.FIN_N]++;
-		this.stomemory[this.finmemory[H.FIN_N]] = this.x;
+		this.reg_To_sto("x", this.finmemory[H.FIN_N]);
 		this.njmemory[this.finmemory[H.FIN_N]] = 1; 
 		this.display_result();
 	}
@@ -3222,7 +4261,7 @@ Hp12c_machine.prototype.rclCFj = function ()
 		this.display_error(H.ERROR_MEMORY);
 	} else {
 		this.push();
-		this.x = this.stomemory[this.finmemory[H.FIN_N]];
+		this.sto_To_reg(this.finmemory[H.FIN_N], "x");
 		--this.finmemory[H.FIN_N];
 		this.display_result();
 	}
@@ -3236,7 +4275,7 @@ Hp12c_machine.prototype.rclNj = function ()
 		this.display_error(H.ERROR_MEMORY);
 	} else {
 		this.push();
-		this.x = this.njmemory[this.finmemory[H.FIN_N]];
+		this.reg_Set_real("x", this.njmemory[this.finmemory[H.FIN_N]]);
 		this.display_result();
 	}
 };
@@ -3246,17 +4285,17 @@ Hp12c_machine.prototype.stoNj = function ()
 	if (this.finmemory[H.FIN_N] != Math.floor(this.finmemory[H.FIN_N]) ||
             this.finmemory[H.FIN_N] < 0 ||
             this.finmemory[H.FIN_N] >= H.MEM_MAX ||
-	    this.x != Math.floor(this.x) || this.x <= 0) {
+	    this.reg_real("x") != Math.floor(this.reg_real("x")) || this.reg_real("x") <= 0) {
 		this.display_error(H.ERROR_MEMORY);
 	} else {
-		this.njmemory[this.finmemory[H.FIN_N]] = this.x;
+		this.njmemory[this.finmemory[H.FIN_N]] = this.reg_real("x");
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.stofin = function (pos)
 {
-	this.finmemory[pos] = this.x;
+	this.finmemory[pos] = this.reg_real("x");
 	this.display_result();
 	this.pushed = 1;
 	this.do_fincalc = 1; // next fin. key runs calculation
@@ -3264,25 +4303,25 @@ Hp12c_machine.prototype.stofin = function (pos)
 
 Hp12c_machine.prototype.ston_12x = function ()
 {
-	var res = this.x * 12;
+	var res = this.reg_real("x") * 12;
 	if (Math.abs(res) > H.value_max) {
 		this.display_error(H.ERROR_OVERFLOW);
 		return;
 	}
-	this.x = res;
+	this.reg_Set_real("x", res);
 	this.stofin(0);
 };
 
 Hp12c_machine.prototype.stoi_12div = function ()
 {
-	this.x /= 12;
+	this.reg_Set_real("x", this.reg_real("x") / 12);
 	this.stofin(1);
 };
 
 Hp12c_machine.prototype.rcl = function (pos)
 {
 	this.push(); // every RCL pushes the result to stack
-	this.x = this.stomemory[pos];
+	this.sto_To_reg(pos, "x");
 	this.display_result();
 };
 
@@ -3295,89 +4334,96 @@ Hp12c_machine.prototype.rcl_index = function (pos)
 	}
 
 	this.push(); // every RCL pushes the result to stack
-	this.x = this.stomemory[index];
+	this.sto_To_reg(index, "x");
 	this.display_result();
 };
 
 Hp12c_machine.prototype.rclfin = function (pos)
 {
 	this.push(); // every RCL pushes the result to stack
-	this.x = this.finmemory[pos];
+	this.reg_Set_real("x", this.finmemory[pos]);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.stat_sigma_rcl = function ()
 {
+	// FIXM15 15C complex?
 	this.push();
 	this.push();
-	this.x = this.stomemory[H.STAT_X];
-	this.y = this.stomemory[H.STAT_Y];
+	this.sto_To_reg(H.STAT_X, "x");
+	this.sto_To_reg(H.STAT_Y, "y");
 	this.display_result();
 };
 
 Hp12c_machine.prototype.stat_sigma_plus = function ()
 {
+	// FIXM15 15C complex?
 	if (! this.alg_resolve()) {
 		return;
 	}
 
-	H.stat_accumulate(+1, this.stomemory, this.x, this.y);
+	H.stat_accumulate(+1, this.sto_mem_ref(), this.reg_real("x"), this.reg_real("y"));
 	this.save_lastx();
-	this.x = this.stomemory[H.STAT_N];
+	this.sto_To_reg(H.STAT_N, "x");
 	this.display_result();
 	this.pushed = 1;
 };
 
 Hp12c_machine.prototype.stat_sigma_minus = function ()
 {
+	// FIXM15 15C complex?
 	if (! this.alg_resolve()) {
 		return;
 	}
 
-	H.stat_accumulate(-1, this.stomemory, this.x, this.y);
+	H.stat_accumulate(-1, this.sto_mem_ref(), this.reg_real("x"), this.reg_real("y"));
 	this.save_lastx();
-	this.x = this.stomemory[H.STAT_N];
+	this.sto_To_reg(H.STAT_N, "x");
 	this.display_result();
 	this.pushed = 1;
 };
 
 Hp12c_machine.prototype.stat_avgw = function ()
 {
+	// FIXM15 15C complex?
 	this.alg_op = 0;
 
-	var res = H.stat_avgw(this.stomemory);
+	// 16C does not have statistics, so this is ok
+	var res = H.stat_avgw(this.sto_mem_ref());
 	
 	if (! res[0]) {
 		this.display_error(H.ERROR_STAT);
 	} else {
 		this.save_lastx();
-		this.x = res[1];
+		this.reg_Set_real("x", res[1]);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.stat_avg = function ()
 {
+	// FIXM15 15C complex?
 	this.alg_op = 0;
 
-	var res = H.stat_avg(this.stomemory);
+	var res = H.stat_avg(this.sto_mem_ref());
 
 	if (! res[0]) {
 		this.display_error(H.ERROR_STAT);
 	} else {
 		this.save_lastx();
 		this.push();
-		this.x = res[1];
-		this.y = res[2];
+		this.reg_Set_real("x", res[1]);
+		this.reg_Set_real("y", res[2]);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.stat_stddev = function ()
 {
+	// FIXM15 15C complex?
 	this.alg_op = 0;
 
-	var res = H.stddev(this.stomemory);
+	var res = H.stddev(this.sto_mem_ref());
 	if (! res[0]) {
 		this.display_error(H.ERROR_STAT);
 		return;
@@ -3385,78 +4431,86 @@ Hp12c_machine.prototype.stat_stddev = function ()
 
 	this.save_lastx();
 	this.push();
-	this.x = res[1];
-	this.y = res[2];
+	this.reg_Set_real("x", res[1]);
+	this.reg_Set_real("y", res[2]);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.stat_lr = function (is_x)
 {
+	// FIXM15 15C complex?
 	this.alg_op = 0;
 
-	var res = H.stat_kr(this.stomemory, is_x, this.x);
+	var res = H.stat_kr(this.sto_mem_ref(), is_x, this.reg_real("x"));
 	if (! res[0]) {
 		this.display_error(H.ERROR_STAT);
 	} else {
 		this.save_lastx();
 		this.push();
-		this.x = res[1];
-		this.y = res[2];
+		this.reg_Set_real("x", res[1]);
+		this.reg_Set_real("y", res[2]);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.stat_linearregression = function ()
 {
+	// FIXM15 15C complex?
 	this.alg_op = 0;
 
-	var res = H.linear_regression(this.stomemory);
+	var res = H.linear_regression(this.sto_mem_ref());
 	if (! res[0]) {
 		this.display_error(H.ERROR_STAT);
 	} else {
 		this.save_lastx();
 		this.push();
 		this.push();
-		this.x = res[1]; // B
-		this.y = res[2]; // A
+		this.reg_Set_real("x", res[1]); // B
+		this.reg_Set_real("y", res[2]); // A
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.permutations = function ()
 {
-	if (this.x < 0 || this.x != Math.floor(this.x) || this.x > 80 ||
-	    this.y < 0 || this.y != Math.floor(this.y) || this.y > 80 ||
-	    this.y < this.x) {
+	// FIXM15 15C complex?
+	var x = this.reg_real("x");
+	var y = this.reg_real("y");
+	if (x < 0 || x != Math.floor(x) || x > 80 ||
+	    y < 0 || y != Math.floor(y) || y > 80 ||
+	    y < x) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		var res = H.permutations(this.y, this.x);
+		var res = H.permutations(y, x);
 		if (H.badnumber(res)) {
 			this.display_error(H.ERROR_DIVZERO);
 			return;
 		}
 		this.pop();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
 
 Hp12c_machine.prototype.combinations = function ()
 {
-	if (this.x < 0 || this.x != Math.floor(this.x) || this.x > 80 ||
-	    this.y < 0 || this.y != Math.floor(this.y) || this.y > 80 ||
-	    this.y < this.x) {
+	// FIXM15 15C complex?
+	var x = this.reg_real("x");
+	var y = this.reg_real("y");
+	if (x < 0 || x != Math.floor(x) || x > 80 ||
+	    y < 0 || y != Math.floor(y) || y > 80 ||
+	    y < x) {
 		this.display_error(H.ERROR_DIVZERO);
 	} else {
 		this.save_lastx();
-		var res = H.combinations(this.y, this.x);
+		var res = H.combinations(y, x);
 		if (H.badnumber(res)) {
 			this.display_error(H.ERROR_DIVZERO);
 			return;
 		}
 		this.pop();
-		this.x = res;
+		this.reg_Set_real("x", res);
 		this.display_result();
 	}
 };
@@ -3473,23 +4527,12 @@ Hp12c_machine.prototype.simple_interest = function ()
 	this.push();
 	this.push();
 	this.push();
-	this.x = n / 360 * -pv * i;
-	this.y = -pv;
-	this.z = n / 365 * -pv * i;
-	this.display_result();
-};
 
-Hp12c_machine.prototype.fincalc2 = function (pos)
-{
-	this.sti();
-	var err = H.financecalc(pos, this.begin, this.compoundf, this.finmemory);
-	if (err == -1) {
-		// no error
-		this.x = this.finmemory[pos];
-		this.display_result();
-	} else {
-		this.display_error(err);
-	}
+	this.reg_Set_real("x", n / 360 * -pv * i);
+	this.reg_Set_real("y", -pv);
+	this.reg_Set_real("z", n / 365 * -pv * i);
+
+	this.display_result();
 };
 
 Hp12c_machine.prototype.sto_or_calc_fin = function (pos)
@@ -3501,11 +4544,20 @@ Hp12c_machine.prototype.sto_or_calc_fin = function (pos)
 	if (! this.do_fincalc) {
 		this.stofin(pos);
 	} else {
-		this.cli();
+		this.cli("sto_or_calc_fin");
 		H.display.show("running");
+
 		var a = this;
 		window.setTimeout(function () {
-			a.fincalc2(pos);
+			a.sti("sto_or_calc_fin");
+			var err = H.financecalc(pos, a.begin, a.compoundf, a.finmemory);
+			if (err == -1) {
+				// no error
+				a.reg_Set_real("x", a.finmemory[pos]);
+				a.display_result();
+			} else {
+				a.display_error(err);
+			}
 		}, 200);
 	}
 };
@@ -3514,7 +4566,8 @@ Hp12c_machine.prototype.npv = function ()
 {
 	this.alg_op = 0;
 	this.push();
-	this.x = H.npv(this.finmemory[H.FIN_N], this.finmemory[H.FIN_I], this.stomemory, this.njmemory);
+	// 16C does not have finance, so this is ok
+	this.reg_Set_real("x", H.npv(this.finmemory[H.FIN_N], this.finmemory[H.FIN_I], this.sto_mem_ref(), this.njmemory));
 	this.finmemory[H.FIN_PV] = this.x;
 	this.display_result();
 };
@@ -3524,14 +4577,15 @@ Hp12c_machine.prototype.irr = function ()
 	this.alg_op = 0;
 
 	H.display.show("running");
-	var res = H.irr_calc(this.finmemory[H.FIN_N], this.finmemory[H.FIN_I], this.stomemory, this.njmemory);
+	// 16C does not have finance, so this is ok
+	var res = H.irr_calc(this.finmemory[H.FIN_N], this.finmemory[H.FIN_I], this.sto_mem_ref(), this.njmemory);
 	var err = res[0];
 	this.finmemory[H.FIN_I] = res[1];
 	if (err != -1) {
 		this.display_error(err);
 	} else {
 		this.push();
-		this.x = this.finmemory[H.FIN_I];
+		this.reg_Set_real("x", this.finmemory[H.FIN_I]);
 		this.display_result();
 	}
 };
@@ -3541,15 +4595,15 @@ Hp12c_machine.prototype.date_date = function ()
 {
 	this.alg_op = 0;
 
-	var base = H.date_interpret(this.y, this.dmy);
+	var base = H.date_interpret(this.reg_real("y"), this.dmy);
 	if (base === null) {
 		this.display_error(H.ERROR_DATE);
 		return;
 	}
 	this.save_lastx();
-	H.date_add(base, this.x);
+	H.date_add(base, this.reg_real("x"));
 	this.pop(); // eat original arguments 
-	this.x = H.date_gen(base, this.dmy); // and fill with newly calculated date
+	this.reg_Set_real("x", H.date_gen(base, this.dmy)); // and fill with newly calculated date
 	this.display_result_date(base);
 };
 
@@ -3557,15 +4611,15 @@ Hp12c_machine.prototype.date_dys = function ()
 {
 	this.alg_op = 0;
 
-	var d2 = H.date_interpret(this.x, this.dmy);
-	var d1 = H.date_interpret(this.y, this.dmy);
+	var d2 = H.date_interpret(this.reg_real("x"), this.dmy);
+	var d1 = H.date_interpret(this.reg_real("y"), this.dmy);
 	if ((d1 === null) || (d2 === null)) {
 		this.display_error(H.ERROR_DATE);
 		return;
 	}
 	this.save_lastx();
-	this.x = H.date_diff(d1, d2);
-	this.y = H.date_diff30(d1, d2);
+	this.reg_Set_real("x", H.date_diff(d1, d2));
+	this.reg_Set_real("y", H.date_diff30(d1, d2));
 	this.display_result();
 };
 
@@ -3573,7 +4627,7 @@ Hp12c_machine.prototype.amortization = function ()
 {
 	this.alg_op = 0;
 
-	var requested_n = this.x;
+	var requested_n = this.reg_real("x");
 	var orig_n = this.finmemory[H.FIN_N];
 	var i = this.finmemory[H.FIN_I] / 100;
 
@@ -3592,9 +4646,11 @@ Hp12c_machine.prototype.amortization = function ()
 
 	this.push();
 	this.push();
-	this.x = tot_interest; 
-	this.y = tot_amort;
-	this.z = requested_n;
+
+	this.reg_Set_real("x", tot_interest); 
+	this.reg_Set_real("y", tot_amort);
+	this.reg_Set_real("z", requested_n);
+
 	this.finmemory[H.FIN_N] += requested_n;
 	this.finmemory[H.FIN_PV] += tot_amort;
 
@@ -3613,13 +4669,13 @@ Hp12c_machine.prototype.bond_price = function ()
 
 	var coupon_year = this.finmemory[H.FIN_PMT];
 
-	var buy = H.date_interpret(this.y, this.dmy);
+	var buy = H.date_interpret(this.reg_real("y"), this.dmy);
 	if (buy === null) {
 		this.display_error(H.ERROR_DATE);
 		return;
 	}
 
-	var maturity = H.date_interpret(this.x, this.dmy);
+	var maturity = H.date_interpret(this.reg_real("x"), this.dmy);
 	if (maturity === null) {
 		this.display_error(H.ERROR_DATE);
 		return;
@@ -3637,8 +4693,9 @@ Hp12c_machine.prototype.bond_price = function ()
 
 	this.push();
 	this.push();
-	this.finmemory[H.FIN_N] = this.x = res[1];
-	this.y = res[2];
+	this.finmemory[H.FIN_N] = res[1];
+	this.reg_Set_real("x", res[1]);
+	this.reg_Set_real("y", res[2]);
 	this.display_result();
 };
 
@@ -3647,8 +4704,8 @@ Hp12c_machine.prototype.bond_yield = function ()
 	this.alg_op = 0;
 
 	var coupon_year = this.finmemory[H.FIN_PMT];
-	var buy = H.date_interpret(this.y, this.dmy);
-	var maturity = H.date_interpret(this.x, this.dmy);
+	var buy = H.date_interpret(this.reg_real("y"), this.dmy);
+	var maturity = H.date_interpret(this.reg_real("x"), this.dmy);
 	var price = this.finmemory[H.FIN_PV];
 
 	var res = H.bond_yield(coupon_year, buy, maturity, price);
@@ -3662,7 +4719,8 @@ Hp12c_machine.prototype.bond_yield = function ()
 	}
 
 	this.push();
-	this.finmemory[H.FIN_I] = this.x = desired_rate;
+	this.finmemory[H.FIN_I] = desired_rate;
+	this.reg_Set_real("x", desired_rate);
 	this.display_result();
 };
 
@@ -3674,7 +4732,7 @@ Hp12c_machine.prototype.depreciation_sl = function ()
 	var cost = this.finmemory[H.FIN_PV];
 	var sell = this.finmemory[H.FIN_FV];
 	var life = this.finmemory[H.FIN_N];
-	var year = this.x;
+	var year = this.reg_real("x");
 
 	var res = H.depreciation_sl(cost, sell, life, year);
 	var err = res[0];
@@ -3688,8 +4746,8 @@ Hp12c_machine.prototype.depreciation_sl = function ()
 	
 	this.push();
 	this.push();
-	this.x = depr;
-	this.y = rest;
+	this.reg_Set_real("x", depr);
+	this.reg_Set_real("y", rest);
 	this.display_result();
 };
 
@@ -3700,7 +4758,7 @@ Hp12c_machine.prototype.depreciation_soyd = function ()
 	var cost = this.finmemory[H.FIN_PV];
 	var sell = this.finmemory[H.FIN_FV];
 	var life = this.finmemory[H.FIN_N];
-	var year = this.x;
+	var year = this.reg_real("x");
 
 	var res = H.depreciation_soyd(cost, sell, life, year);
 	var err = res[0];
@@ -3714,8 +4772,8 @@ Hp12c_machine.prototype.depreciation_soyd = function ()
 	
 	this.push();
 	this.push();
-	this.x = depr;
-	this.y = rest;
+	this.reg_Set_real("x", depr);
+	this.reg_Set_real("y", rest);
 	this.display_result();
 };
 
@@ -3726,7 +4784,7 @@ Hp12c_machine.prototype.depreciation_db = function ()
 	var cost = this.finmemory[H.FIN_PV];
 	var sell = this.finmemory[H.FIN_FV];
 	var life = this.finmemory[H.FIN_N];
-	var year = this.x;
+	var year = this.reg_real("x");
 	var db = this.finmemory[H.FIN_I] / 100;
 
 	var res = H.depreciation_db(cost, sell, life, year, db);
@@ -3741,15 +4799,21 @@ Hp12c_machine.prototype.depreciation_db = function ()
 
 	this.push();
 	this.push();
-	this.x = depr;
-	this.y = rest;
+	this.reg_Set_real("x", depr);
+	this.reg_Set_real("y", rest);
 	this.display_result();
 };
 
 Hp12c_machine.prototype.display_program_opcode = function ()
 {
+	var instr = this.ram[this.ip];
+
+	if (H.type === "16c") {
+		instr = H.pgrm.hex_opcode(instr);
+	}
+
 	var txt = H.zeropad(this.ip.toFixed(0), H.ram_ADDR_SIZE) +
-				"-" + this.ram[this.ip];
+				"-" + instr;
 	H.display.show(txt);
 };
 
@@ -3766,12 +4830,17 @@ Hp12c_machine.prototype.prog_pr = function ()
 
 Hp12c_machine.prototype.prog_bst_after = function ()
 {
-	this.sti();
-	this.display_result();
+	this.sti("bst_after");
+	this.display_result_s(false, false);
 };
 
 Hp12c_machine.prototype.gto_digit_add = function (n)
 {
+	if (n > 9) {
+		this.display_error(H.ERROR_IMPROPER_N);
+		return;
+	}
+
 	this.gtoxx = "" + this.gtoxx + n.toFixed(0);
 	if (this.gtoxx.length >= H.ram_ADDR_SIZE) {
 		var new_ip = parseInt(this.gtoxx, 10);
@@ -3787,58 +4856,95 @@ Hp12c_machine.prototype.gto_digit_add = function (n)
 	}
 };
 
+Hp12c_machine.prototype.ntest = function (var1, criteria, var2)
+{
+	if (var1 !== "0") {
+		var1 = this.reg_tuple(var1);
+	} else {
+		var1 = {r: 0, h: 0, i: 0};
+	}
+
+	if (var2 !== "0") {
+		var2 = this.reg_tuple(var2);
+	} else {
+		var2 = {r: 0, h: 0, i: 0};
+	}
+
+	var res;
+
+	if (this.notation >= H.NOTATION_INT) {
+		if (criteria == "==" || criteria == "=" || criteria == "===") {
+			res = H.integer_eq(var1, var2, this.negative_repr, this.wordsize);
+		} else if (criteria == "<=") {
+			res = H.integer_le(var1, var2, this.negative_repr, this.wordsize);
+		} else if (criteria == "<") {
+			res = H.integer_lt(var1, var2, this.negative_repr, this.wordsize);
+		}
+	} else {
+		var1 = var1.r;
+		var2 = var2.r;
+
+		if (criteria == "==" || criteria == "=" || criteria == "===") {
+			res = H.feq10(var1, var2);
+		} else if (criteria == "<=") {
+			res = var1 <= var2;
+		} else if (criteria == "<") {
+			res = var1 < var2;
+		}
+	}
+
+	return res;
+};
+
+Hp12c_machine.prototype.test = function (condition)
+{
+	this.display_result_s(false, true);
+	this.incr_ip(condition ? 0 : 1);
+};
+
 Hp12c_machine.prototype.test_x_le_y = function ()
 {
-	this.display_result();
-	this.incr_ip(this.x <= this.y ? 0 : 1);
+	this.test(this.ntest("x", "<=", "y"));
 };
 
 Hp12c_machine.prototype.test_x_gt_y = function ()
 {
-	this.display_result();
-	this.incr_ip(this.x > this.y ? 0 : 1);
+	this.test(! this.ntest("x", "<=", "y"));
 };
 
 Hp12c_machine.prototype.test_x_eq_y = function ()
 {
-	this.display_result();
-	this.incr_ip(H.feq10(this.x, this.y) ? 0 : 1);
+	this.test(this.ntest("x", "==", "y"));
 };
 
 Hp12c_machine.prototype.test_x_ne_y = function ()
 {
-	this.display_result();
-	this.incr_ip((!H.feq10(this.x, this.y)) ? 0 : 1);
+	this.test(! this.ntest("x", "==", "y"));
 };
 
 Hp12c_machine.prototype.test_x_less_0 = function ()
 {
-	this.display_result();
-	this.incr_ip(this.x < 0 ? 0 : 1);
+	this.test(this.ntest("x", "<", "0"));
 };
 
 Hp12c_machine.prototype.test_x_gt_0 = function ()
 {
-	this.display_result();
-	this.incr_ip(this.x > 0 ? 0 : 1);
+	this.test(! this.ntest("x", "<=", "0"));
 };
 
 Hp12c_machine.prototype.test_x_le_0 = function ()
 {
-	this.display_result();
-	this.incr_ip(this.x <= this.y ? 0 : 1);
+	this.test(this.ntest("x", "<=", "0"));
 };
 
 Hp12c_machine.prototype.test_x_eq0 = function ()
 {
-	this.display_result();
-	this.incr_ip(H.feq10(this.x, 0) ? 0 : 1);
+	this.test(this.ntest("x", "==", "0"));
 };
 
 Hp12c_machine.prototype.test_x_ne0 = function ()
 {
-	this.display_result();
-	this.incr_ip((!H.feq10(this.x, 0)) ? 0 : 1);
+	this.test(! this.ntest("x", "==", "0"));
 };
 
 Hp12c_machine.prototype.gto_buf_clear = function ()
@@ -3848,6 +4954,1143 @@ Hp12c_machine.prototype.gto_buf_clear = function ()
 
 Hp12c_machine.prototype.nop = function ()
 {
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.solve = function ()
+{
+	// FIXM15 15c
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.matrix = function ()
+{
+	// FIXM15 15C complex?
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.matrix_dim = function ()
+{
+	// FIXM15 15c
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.result15c = function ()
+{
+	// FIXM15 15c
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.test_15c = function ()
+{
+	// FIXM15 15c
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.integral = function ()
+{
+	// FIXM15 15C complex?
+	// FIXM15 15c
+};
+
+// FIXM15 unit test
+Hp12c_machine.prototype.complex_re_im = function ()
+{
+	// FIXM15 15c
+};
+
+Hp12c_machine.prototype.window_count = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		return 1;
+	}
+
+	var bits_per_digit = H.digit_bits[this.notation];
+	var digits_on_display = H.win_digits[this.notation];
+	var tot_digits = Math.ceil(this.wordsize / bits_per_digit);
+
+	return Math.ceil(tot_digits / digits_on_display);
+};
+
+Hp12c_machine.prototype.set_window = function (nw)
+{
+	this.intwindow = nw;
+	this.display_wordstatus();
+	this.display_result_s(false, false);
+};
+
+Hp12c_machine.prototype.show_window = function (nw)
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	console.log("Setting window to " + nw);
+
+	if (nw < 0 || nw >= this.window_count()) {
+		this.display_error(H.ERROR_IMPROPER_N);
+		return;
+	}
+
+	this.set_window(nw);
+};
+
+Hp12c_machine.prototype.prepare_for_integer_mode = function ()
+{
+	// still in integer mode at this point
+	var x = this.reg_real("x");
+	var mantissa = {r: 0, h: 0, i: 0};
+	var exp2 = {r: 0, h: 0, i: 0};
+
+	if (x !== 0 && ! H.badnumber(x)) {
+		x = Math.abs(x);
+		// rank of 1 is 1, so mantissa becomes >= 2**31 and < 2**32
+		var rank = Math.floor(Math.log(Math.abs(x)) / Math.log(2)) + 1;
+		mantissa = x * Math.pow(2, 32 - rank);
+		exp2 = rank - 32;
+		if (this.negative_repr <= 0) {
+			mantissa = Math.abs(mantissa);
+		}
+		mantissa = Math.round(mantissa).toString();
+		mantissa = H.string_to_integer(mantissa, this.negative_repr, 56, 10);
+		exp2 = Math.round(exp2).toString();
+		exp2 = H.string_to_integer(exp2, this.negative_repr, 56, 10);
+	}
+
+	this.wordsize = 56;
+	// provisional setting so next commands accept integers
+	this.notation = H.NOTATION_INT_HEX;
+
+	this.reg_Set_tuple("x", exp2);
+	this.reg_Set_tuple("y", mantissa);
+	this.reg_Set_tuple("z", {r: 0, h: 0, i: 0});
+	this.reg_Set_tuple("w", {r: 0, h: 0, i: 0});
+	this.reg_Set_tuple("last_x", {r: 0, h: 0, i: 0});
+};
+
+Hp12c_machine.prototype.prepare_for_float_mode = function ()
+{
+	// still in integer mode at this point
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	x = H.integer_to_string(x, this.negative_repr, this.wordsize,
+					10, true);
+	y = H.integer_to_string(y, this.negative_repr, this.wordsize,
+					10, true);
+	// ok if numbers exceed FP precision
+	x = parseInt(x, 10);
+	y = parseInt(y, 10);
+
+	this.set_overflow(0);
+
+	var y2x = y * Math.pow(2.0, x);
+
+	if (y2x > H.value_max) {
+		y2x = H.value_max;
+		this.set_overflow(1);
+	} else if (y2x < -H.value_max) {
+		y2x = -H.value_max;
+		this.set_overflow(1);
+	} else if (H.badnumber(y2x)) {
+		y2x = 0;
+		this.set_overflow(1);
+	}
+
+	// provisional setting so next methods accept float values
+	this.notation = H.NOTATION_FIX;
+
+	this.reg_Set_tuple("x", {r: y2x, h: 0, i: 0});
+	this.reg_Set_tuple("z", {r: 0, h: 0, i: 0});
+	this.reg_Set_tuple("w", {r: 0, h: 0, i: 0});
+	this.reg_Set_tuple("y", {r: 0, h: 0, i: 0});
+	this.reg_Set_tuple("last_x", {r: 0, h: 0, i: 0});
+
+	this.wordsize = 56;
+};
+
+Hp12c_machine.prototype.word_bit = function (t, n)
+{
+	if (n >= this.wordsize) {
+		console.log("word_bit: n > wordsize");
+		return 0;
+	}
+
+	return H.word_bit(t, n);
+};
+
+Hp12c_machine.prototype.word_Set_bit = function (t, n, v)
+{
+	if (n >= this.wordsize) {
+		console.log("word_Set_bit: n > wordsize");
+		return;
+	}
+
+	H.word_Set_bit(t, n, v);
+};
+
+Hp12c_machine.prototype.word_Set_msb = function (t, v)
+{
+	this.word_Set_bit(t, this.wordsize - 1, v);
+};
+
+Hp12c_machine.prototype.word_Set_lsb = function (t, v)
+{
+	this.word_Set_bit(t, 0, v);
+};
+
+Hp12c_machine.prototype.word_msb = function (t)
+{
+	return this.word_bit(t, this.wordsize - 1);
+};
+
+Hp12c_machine.prototype.word_lsb = function (t)
+{
+	return this.word_bit(t, 0);
+};
+
+Hp12c_machine.prototype.set_carry = function (v)
+{
+	if (H.type === "16c") {
+		if (v) {
+			this.do_sf(H.FLAG_CARRY);
+		} else {
+			this.do_cf(H.FLAG_CARRY);
+		}
+	}
+};
+
+Hp12c_machine.prototype.set_overflow = function (v)
+{
+	if (H.type === "16c") {
+		if (v) {
+			this.do_sf(H.FLAG_OVERFLOW);
+		} else {
+			this.do_cf(H.FLAG_OVERFLOW);
+		}
+	}
+};
+
+Hp12c_machine.prototype.get_carry = function (v)
+{
+	return this.flags[H.FLAG_CARRY];
+};
+
+Hp12c_machine.prototype.get_zeros_flag = function (v)
+{
+	return this.flags[H.FLAG_ZEROS];
+};
+
+Hp12c_machine.prototype.get_overflow = function (v)
+{
+	return this.flags[H.FLAG_OVERFLOW];
+};
+
+Hp12c_machine.prototype.shift_left_tuple = function (t)
+{
+	this.cast_wordsize(t);
+
+	/*jslint bitwise: false */
+	t.h = t.h << 1;
+	if (t.r & 0x80000000) {
+		t.h = t.h | 0x01;
+	}
+	t.r = t.r << 1;
+	/*jslint bitwise: true */
+
+	this.cast_wordsize(t);
+	return t;
+};
+
+Hp12c_machine.prototype.shift_right_tuple = function (t)
+{
+	this.cast_wordsize(t);
+
+	/*jslint bitwise: false */
+	t.r = t.r >>> 1;
+	if (t.h & 0x01) {
+		t.r = t.r | 0x80000000;
+	}
+	t.h = t.h >>> 1;
+	/*jslint bitwise: true */
+
+	this.cast_wordsize(t);
+	return t;
+};
+
+Hp12c_machine.prototype.shiftleft = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+	this.cast_wordsize(t);
+
+	this.set_carry(this.word_msb(t));
+	this.shift_left_tuple(t);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.shiftright = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+	this.cast_wordsize(t);
+
+	this.set_carry(this.word_lsb(t));
+	this.shift_right_tuple(t);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.leftjustify = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var bits = 0;
+	var t = this.reg_tuple("x");
+	this.cast_wordsize(t);
+
+	if (t.r === 0 && t.h === 0) {
+		// do nothing
+	} else {
+		while (! this.word_msb(t)) {
+			this.shift_left_tuple(t);
+			++bits;
+		}
+	}
+
+	this.save_lastx();
+	this.push();
+	this.reg_Set_tuple("y", t);
+	this.reg_Set_real("x", bits);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.arithmeticshift = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+	this.cast_wordsize(t);
+
+	var signal = this.word_msb(t);
+	this.set_carry(this.word_lsb(t));
+	this.shift_right_tuple(t);
+	if (this.wordsize > 1) {
+		this.word_Set_msb(t, signal);
+	}
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotateleftc = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+	this.rotate_left_tuple(t, 1);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotaterightc = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+	this.cast_wordsize(t);
+
+	var lsb = this.word_lsb(t);
+	var carry = this.get_carry();
+
+	this.shift_right_tuple(t);
+
+	this.set_carry(lsb);
+	this.word_Set_msb(t, carry);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotate_left_tuple = function (t, rot_with_carry)
+{
+	this.cast_wordsize(t);
+
+	/*jslint bitwise: false */
+	var msb = this.word_msb(t);
+	var carry = this.get_carry(t);
+
+	this.shift_left_tuple(t);
+
+	this.set_carry(msb);
+	if (rot_with_carry) {
+		this.word_Set_lsb(t, carry);
+	} else {
+		this.word_Set_lsb(t, msb);
+	}
+	/*jslint bitwise: true */
+
+	this.cast_wordsize(t);
+
+	return t;
+};
+
+Hp12c_machine.prototype.rotateleft = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+
+	this.rotate_left_tuple(t, 0);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotate_right_tuple = function (t, rot_with_carry)
+{
+
+	this.cast_wordsize(t);
+
+	/*jslint bitwise: false */
+
+	var lsb = this.word_lsb(t);
+	var carry = this.get_carry();
+
+	this.shift_right_tuple(t);
+
+	this.set_carry(lsb);
+	if (rot_with_carry) {
+		this.word_Set_msb(t, carry);
+	} else {
+		this.word_Set_msb(t, lsb);
+	}
+
+	this.cast_wordsize(t);
+
+	/*jslint bitwise: true */
+	return t;
+};
+
+Hp12c_machine.prototype.rotateright = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("x");
+
+	this.rotate_right_tuple(t, 0);
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotateleftn = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("y");
+	var n = Math.abs(this.reg_real("x"));
+
+	if (n < 0 || n > this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	while (--n >= 0) {
+		this.rotate_left_tuple(t, 0);
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotaterightn = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("y");
+	var n = Math.abs(this.reg_real("x"));
+
+	if (n < 0 || n > this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	while (--n >= 0) {
+		this.rotate_right_tuple(t, 0);
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotateleftcn = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("y");
+	var n = Math.abs(this.reg_real("x"));
+
+	if (n < 0 || n > this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	while (--n >= 0) {
+		this.rotate_left_tuple(t, 1);
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.rotaterightcn = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var t = this.reg_tuple("y");
+	var n = Math.abs(this.reg_real("x"));
+
+	if (n < 0 || n > this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	while (--n >= 0) {
+		this.rotate_right_tuple(t, 1);
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.maskleft = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var bits = Math.abs(this.reg_real("x"));
+
+	if (bits < 0 || bits > this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	var t = {r: 0xffffffff, h: 0xffffffff, i: 0};
+
+	// convert 'bits 1' to 'bits 0'
+	bits = this.wordsize - bits;
+
+	while (--bits >= 0) {
+		this.shift_left_tuple(t, 0);
+	}
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.bitcount = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var t = this.reg_tuple("x");
+	this.cast_wordsize(t);
+	var bits = 0;
+	/*jslint bitwise: false */
+	while (t.r || t.h) {
+		if (t.r & 0x01) {
+			++bits;
+		}
+		if (t.h & 0x01) {
+			++bits;
+		}
+		t.r = t.r >>> 1;
+		t.h = t.h >>> 1;
+	}
+	/*jslint bitwise: true */
+
+	this.save_lastx();
+	this.reg_Set_real("x", bits);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.maskright = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var bits = Math.abs(this.reg_real("x"));
+	if (bits < 0 || bits > this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+	/*jslint bitwise: false */
+	var t = {r: 0xffffffff, h: 0xffffffff, i: 0};
+
+	if (bits <= 0) {
+		t.h = t.r = 0;
+	} else if (bits <= 32) {
+		t.h = 0;
+		t.r = t.r >>> (32 - bits);
+	} else {
+		t.h = t.h >>> (64 - bits);
+	}
+	/*jslint bitwise: true */
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", t);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.bit_xor = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+	/*jslint bitwise: false */
+	var z = { r: (x.r ^ y.r), 
+		  h: (x.h ^ y.h),
+		  i: 0 };
+	/*jslint bitwise: true */
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", z);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.show_integer_diff = function (notation)
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	} else if (notation == this.notation) {
+		// current notation already
+		return;
+	}
+	
+	this.cli("show_integer_diff");
+
+	this.saved_notation = this.notation;
+	this.notation = notation;
+	this.display_result_s(true, false); // reset window, ! enable push
+
+	var self = this;
+
+	window.setTimeout(function () {
+		self.sti("show_integer_diff");
+		self.notation = self.saved_notation;
+		self.display_result();
+	}, 2000);
+};
+
+Hp12c_machine.prototype.show_integer_hex = function ()
+{
+	this.show_integer_diff(H.NOTATION_INT_HEX);
+};
+
+Hp12c_machine.prototype.show_integer_dec = function ()
+{
+	this.show_integer_diff(H.NOTATION_INT_DEC);
+};
+
+Hp12c_machine.prototype.show_integer_oct = function ()
+{
+	this.show_integer_diff(H.NOTATION_INT_OCT);
+};
+
+Hp12c_machine.prototype.show_integer_bin = function ()
+{
+	this.show_integer_diff(H.NOTATION_INT_BIN);
+};
+
+Hp12c_machine.prototype.integer_hex = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		this.prepare_for_integer_mode();
+	}
+	this.notation = H.NOTATION_INT_HEX;
+	this.set_window(0);
+};
+
+Hp12c_machine.prototype.integer_dec = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		this.prepare_for_integer_mode();
+	}
+	this.notation = H.NOTATION_INT_DEC;
+	this.set_window(0);
+};
+
+Hp12c_machine.prototype.integer_oct = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		this.prepare_for_integer_mode();
+	}
+	this.notation = H.NOTATION_INT_OCT;
+	this.set_window(0);
+};
+
+Hp12c_machine.prototype.integer_bin = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		this.prepare_for_integer_mode();
+	}
+	this.notation = H.NOTATION_INT_BIN;
+	this.set_window(0);
+};
+
+Hp12c_machine.prototype.set_bit = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var bit = Math.abs(this.reg_real("x"));
+	var y = this.reg_tuple("y");
+
+	if (bit < 0 || bit >= this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	this.cast_wordsize(y);
+	this.word_Set_bit(y, bit, 1);
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", y);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.clr_bit = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var bit = Math.abs(this.reg_real("x"));
+	var y = this.reg_tuple("y");
+
+	if (bit < 0 || bit >= this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+
+	this.cast_wordsize(y);
+	this.word_Set_bit(y, bit, 0);
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", y);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.bit_question = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var bit = Math.abs(this.reg_real("x"));
+	var y = this.reg_tuple("y");
+
+	if (bit < 0 || bit >= this.wordsize) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+	
+	this.save_lastx();
+	this.pop();
+	this.incr_ip(this.word_bit(y, bit) ? 0 : 1);
+
+	this.display_result();
+};
+
+Hp12c_machine.prototype.sc_cpl1 = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	this.negative_repr = 1;
+	this.display_wordstatus();
+	this.display_result_s(true, false);
+};
+
+Hp12c_machine.prototype.sc_cpl2 = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	this.negative_repr = 2;
+	this.display_wordstatus();
+	this.display_result_s(true, false);
+};
+
+Hp12c_machine.prototype.sc_unsigned = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	this.negative_repr = 0;
+	this.display_wordstatus();
+	this.display_result_s(true, false);
+};
+
+Hp12c_machine.prototype.bit_not = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var x = this.reg_tuple("x");
+	this.cast_wordsize(x);
+	/*jslint bitwise: false */
+	// reg_Set_tuple rips off excess bits
+	var z = { r: ~x.r, 
+		  h: ~x.h,
+		  i: 0 };
+	/*jslint bitwise: true */
+
+	this.save_lastx();
+	this.reg_Set_tuple("x", z);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.move_window_l = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var nw = this.intwindow + 1;
+	if (nw >= 0 && nw < this.window_count()) {
+		this.set_window(nw);
+	}
+};
+
+Hp12c_machine.prototype.move_window_r = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var nw = this.intwindow - 1;
+	if (nw >= 0 && nw < this.window_count()) {
+		this.set_window(nw);
+	}
+};
+
+Hp12c_machine.prototype.wsize = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var n = this.reg_real("x");
+	if (n < 0 || n > 64) {
+		this.display_error(H.ERROR_IMPROPER_BIT);
+		return;
+	}
+	if (n === 0) {
+		n = 64;
+	}
+	this.wordsize = n;
+	this.save_lastx();
+	this.cast_wordsize_in_accumulators();
+	this.pop();
+	this.display_wordstatus();
+	this.display_result();
+};
+
+Hp12c_machine.prototype.status_16c = function ()
+{
+	var txt = "";
+
+	if (this.negative_repr <= 0) {
+		txt = "U";
+	} else {
+		txt = "" + this.negative_repr;
+	}
+
+	txt += "-";
+	txt += H.zeropad("" + this.wordsize, 2);
+	txt += "-";
+	
+	var i;
+	for (i = 3; i >= 0; --i) {
+		txt += (this.flags[i] ? "1" : "0");
+	}
+
+	this.cli("status_16c");
+
+	H.display.show(txt);
+
+	var self = this;
+	window.setTimeout(function () {
+		self.sti("status_16c");
+		self.display_result_s(false, false);
+	}, 1000);
+};
+
+Hp12c_machine.prototype.bit_and = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+	/*jslint bitwise: false */
+	var z = { r: (x.r & y.r), 
+		  h: (x.h & y.h),
+		  i: 0 };
+	/*jslint bitwise: true */
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", z);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.bit_or = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+	/*jslint bitwise: false */
+	var z = { r: (x.r | y.r), 
+		  h: (x.h | y.h),
+		  i: 0 };
+	/*jslint bitwise: true */
+
+	this.save_lastx();
+	this.pop();
+	this.reg_Set_tuple("x", z);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.dsz = function ()
+{
+	if (this.notation >= H.NOTATION_INT) {
+		this.index = Math.round(this.index);
+	}
+	this.index--;
+	this.incr_ip(this.index === 0 ? 1 : 0);
+	this.display_result_s(false, true);
+};
+
+Hp12c_machine.prototype.isz = function ()
+{
+	if (this.notation >= H.NOTATION_INT) {
+		this.index = Math.round(this.index);
+	}
+	this.index++;
+	this.incr_ip(this.index === 0 ? 1 : 0);
+	this.display_result_s(false, true);
+};
+
+Hp12c_machine.prototype.rmd = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+	if (x.r === 0 && x.h === 0) {
+		this.display_error(H.ERROR_DIVZERO);
+		return;
+	}
+
+	var t = H.integer_divide([y.h, y.r], [x.h, x.r], this.negative_repr,
+				 this.wordsize, false);
+	if (t.overflow) {
+		this.display_error(H.ERROR_DIVZERO);
+		return;
+	}
+
+	this.save_lastx();
+	this.pop();
+	// does not affect carry and overflow
+	this.reg_Set_tuple("x", t.result[1]);
+	this.display_result();
+};
+
+Hp12c_machine.prototype.dblr = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	var z = this.reg_tuple("z");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+	this.cast_wordsize(z);
+	if (x.r === 0 && x.h === 0) {
+		this.display_error(H.ERROR_DIVZERO);
+		return;
+	}
+
+	var t = H.integer_divide([y.h, y.r, z.h, z.r], [x.h, x.r],
+				 this.negative_repr, this.wordsize, true);
+	if (t.overflow) {
+		this.display_error(H.ERROR_DIVZERO);
+		return;
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.pop();
+	// does not affect carry and overflow
+	this.reg_Set_tuple("x", t.result[1]);
+
+	this.display_result();
+};
+
+Hp12c_machine.prototype.dblmult = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+
+	var t = H.integer_multiply([y.h, y.r], [x.h, x.r], this.negative_repr,
+					this.wordsize, true);
+
+	this.save_lastx();
+	// does not affect carry
+	this.set_overflow(t.overflow);        // always false
+	this.reg_Set_tuple("x", t.result[1]); // hi
+	this.reg_Set_tuple("y", t.result[0]); // lo
+	this.display_result();
+};
+
+Hp12c_machine.prototype.dbldiv = function ()
+{
+	if (this.notation < H.NOTATION_INT) {
+		// not in 16C integer mode
+		return;
+	}
+
+	var x = this.reg_tuple("x");
+	var y = this.reg_tuple("y");
+	var z = this.reg_tuple("z");
+	this.cast_wordsize(x);
+	this.cast_wordsize(y);
+	this.cast_wordsize(z);
+	if (x.r === 0 && x.h === 0) {
+		this.display_error(H.ERROR_DIVZERO);
+		return;
+	}
+
+	var t = H.integer_divide([y.h, y.r, z.h, z.r], [x.h, x.r],
+				 this.negative_repr, this.wordsize, true);
+	if (t.overflow) {
+		this.display_error(H.ERROR_DIVZERO);
+		return;
+	}
+
+	this.save_lastx();
+	this.pop();
+	this.pop();
+	this.set_carry(t.carry);
+	this.set_overflow(t.overflow);
+	this.reg_Set_tuple("x", t.result[0]);
+	this.display_result();
 };
 /* HP-12C emulator 
  * Copyright (c) 2011 EPx.com.br.
@@ -4461,7 +6704,7 @@ H.feq = function (a, b, epsilon) {
 	return (A >= X && A <= Y) || (B >= X && B <= Y);
 	*/
 
-	// print(" " + a + " " + b + " " + epsilon + " " + Math.abs(a - b) +
+	// printf(" " + a + " " + b + " " + epsilon + " " + Math.abs(a - b) +
 	// (Math.abs(a - b) < epsilon));
 
 	return Math.abs(a - b) <= epsilon;
@@ -4741,23 +6984,1244 @@ H.stat_avgw = function (mem)
 	}
 	return [1, mem[H.STAT_XY] / mem[H.STAT_X]];
 };
-H.sve = 7.5;
-H.kve = "eeae9d29025fb3573c0b2eeb7c75114a";
+
+/*jslint bitwise: false */
+
+H.word_bit = function (t, n)
+{
+	var res = 0;
+	if (n >= 32) {
+		res = (t.h >>> (n - 32)) & 0x01; // 63..32 -> 31..0
+	} else {
+		res = (t.r >>> n) & 0x01; // 31..0
+	}
+	return res;
+};
+
+H.word_Set_bit = function (t, n, v) {
+	if (n >= 32) {
+		if (v) {
+			t.h = t.h | (1 << (n - 32)); // 32..63 -> 0..31
+		} else {
+			t.h = t.h & (~(1 << (n - 32)));
+		}
+	} else {
+		if (v) {
+			t.r = t.r | (1 << n); // 0..31
+		} else {
+			t.r = t.r & (~(1 << n));
+		}
+	}
+};
+
+H.cast_wordsize = function (t, ws) {
+	var maskl = 0;
+	var maskh = 0;
+	if (ws > 32) {
+		maskl = 0xffffffff;
+		maskh = 0xffffffff >>> (64 - ws); // 64..33 -> 0..31
+	} else {
+		maskl = 0xffffffff >>> (32 - ws); // 32..1 -> 0..31 (no 0-word size)
+	}
+	t.r = t.r & maskl;
+	t.h = t.h & maskh;
+};
+
+H.spagint_to_digit = function (x, bit, radix, bits)
+{
+	var mult = 1;
+	var n = 0;
+	while (bits > 0 && bit < x.length) {
+		if (x[bit]) {
+			n += mult;
+		}
+		++bit;
+		--bits;
+		mult *= 2;
+	}
+	return n.toString(radix);
+};
+
+// multiplies a decimal number (as a string) by 2
+// integer may be of any size
+H.sdecimal_mult2 = function (sd)
+{
+	var carry = 0;
+	var res = "";
+
+	for (var i = sd.length - 1; i >= 0; --i) {
+		var n = parseInt(sd.charAt(i), 10);
+		n = n * 2 + carry;
+		carry = Math.floor(n / 10);
+		res = (n % 10).toString(10) + res;
+	}
+
+	if (carry) {
+		res = carry.toString(10) + res;
+	}
+
+	return res;
+};
+
+H.binary_to_decimal = function (b)
+{
+	var dec = "0";
+
+	for (var i = 0; i < b.length; ++i) {
+		// make room to odd/even bit
+		dec = H.sdecimal_mult2(dec);
+		if (b.charAt(i) !== "0") {
+			var dd = parseInt(dec.charAt(dec.length - 1), 10);
+			dd += 1;
+			dec = dec.substring(0, dec.length - 1) + dd.toString(10);
+		}
+	}
+
+	return dec;
+};
+
+H.integer_to_string = function (x, cpl, ws, radix, omit_prefix)
+{
+	var number = "";
+	var nsign = "";
+	var nprefix = "";
+	var bits = 4;
+
+	if (! radix) {
+		radix = 10;
+	}
+
+	H.cast_wordsize(x, ws);
+	var s = H.make_spaghetti([x.h, x.r], ws, false);
+	if (H.spagint_sgn(s, cpl) < 0) {
+		nsign = "-";
+		// does not matter if overflows for cpl = 2 and MIN_INT
+		// because we interpret "s" as unsigned from this point
+		// on, and ((unsigned) MIN_INT) == MAX_INT + 1
+		H.spagint_inv(s, cpl);
+	}
+
+	if (radix === 2) {
+		nprefix += "0b";
+		bits = 1;
+	} else if (radix === 8) {
+		nprefix += "0";
+		bits = 3;
+	} else if (radix === 16) {
+		nprefix += "0x";
+		bits = 4;
+	}
+
+	var pradix = radix;
+
+	if (radix === 10) {
+		// convert to binary first
+		pradix = 2;
+		bits = 1;
+	}
+		
+	var znumber = "";
+
+	// fast, easy algorithm for 2^n radix
+	for (var bit = 0; bit < ws; bit += bits) {
+		var digit = H.spagint_to_digit(s, bit, pradix, bits);
+		znumber = digit + znumber;
+		if (digit !== '0') {
+			// significant digit; move buffered digits
+			number = znumber + number;
+			znumber = "";
+		}
+	}
+
+	if (radix === 10) {
+		number = H.binary_to_decimal(number);
+	}
+
+	if (number.length <= 0) {
+		number = "0";
+	}
+
+	if (omit_prefix) {
+		nprefix = "";
+	}
+
+	return nsign + nprefix + number;
+};
+
+H.parse_digit = function (s, radix)
+{
+	var n = parseInt(s, radix);
+	if (! n) {
+		n = 0;
+	}
+	return n;
+};
+
+H.string_to_integer = function (s, cpl, ws, radix)
+{
+	// convert string s to spagint bits
+	var sgn = 1;
+	var spagint = H.spagint_make_zero(ws);
+	var position = H.spagint_make_one(ws);
+
+	s = "" + s;
+	s = H.trim(s);
+	s.toLowerCase();
+	if (s.charAt(0) === '-') {
+		if (cpl > 0) {
+			sgn = -1;
+		}
+		s = s.substring(1);
+	}
+
+	if (! radix) {
+		radix = 10;
+		if (s.charAt(0) === '0') {
+			// not decimal
+			s = s.substring(1);
+			if (s.charAt(0) === 'x') {
+				radix = 16;
+				s = s.substring(1);
+			} else if (s.charAt(0) === 'b') {
+				radix = 2;
+				s = s.substring(1);
+			} else {
+				radix = 8;
+			}
+		}
+	}
+	var sradix = H.make_spaghetti([radix], ws, false);
+
+	while (s.length > 0) {
+		var digit = H.parse_digit(s.charAt(s.length - 1), radix);
+		// digit *= position
+		// i += digit (positioned)
+		var sdigit = H.spagint_make_zero(ws);
+		H.spagint_multiply(H.make_spaghetti([digit], ws, false), position, sdigit);
+		H.spagint_u_s_sum(spagint, sdigit);
+		// position *= radix
+		var oldpos = H.spagint_copy(position);
+		position = H.spagint_make_zero(ws);
+		H.spagint_multiply(sradix, oldpos, position);
+		s = s.substring(0, s.length - 1);
+	}
+
+	if (sgn < 1) {
+		H.spagint_inv(spagint, cpl);
+	}
+
+	// convert from 'spagint' format to 2x32 register format
+	var t = H.undo_spaghetti(spagint, ws, false);
+	H.cast_wordsize(t, ws);
+
+	return t;
+};
+
+H.make_spaghetti = function (a, ws, dbl)
+{
+	var s = [];
+	var word, bit;
+
+	for (word = 0; word < (dbl ? 2 : 1); ++word) {
+		var idx = a.length - word * 2 - 1;
+		var wh = 0;
+		var wl = 0;
+		if (idx >= 0) {
+			wl = a[idx];
+			if (idx >= 1) {
+				wh = a[idx - 1];
+			}
+		}
+		for (bit = 0; bit < ws; ++bit) {
+			var bitval = 0;
+			var mask = 0x01;
+			mask = mask << (bit % 32); // 0..31
+			if (bit >= 32) {
+				bitval = (wh & mask) ? 1 : 0;
+			} else {
+				bitval = (wl & mask) ? 1 : 0;
+			}
+			s.push(bitval);
+		}
+	}
+	return s;
+};
+
+H.undo_spaghetti = function (s, ws, dbl)
+{
+	var bitlimit = dbl ? (ws * 2) : ws;
+	var ta = [{r: 0, h: 0, i: 0}, {r: 0, h: 0, i: 0}];
+
+	for (var bit = 0; bit < bitlimit; ++bit) {
+		var word = Math.floor(bit / ws);
+		var wbit = bit % ws;
+		if (s[bit]) {
+			var mask = 1 << (wbit % 32); // 0..31
+			if (wbit >= 32) {
+				ta[word].h |= mask;
+			} else {
+				ta[word].r |= mask;
+			}
+		}
+	}
+
+	if (!dbl) {
+		ta = ta[0];
+	}
+
+	return ta;
+};
+
+/*jslint bitwise: true */
+
+H.spagint_shr = function (s)
+{
+	for (var i = 0; i < (s.length - 1); ++i) {
+		s[i] = s[i + 1];
+	}
+	s[s.length - 1] = 0;
+};
+
+H.spagint_shl = function (s)
+{
+	for (var i = s.length - 1; i > 0; --i) {
+		s[i] = s[i - 1];
+	}
+	s[0] = 0;
+};
+
+H.spagint_highbit = function (s)
+{
+	for (var i = s.length - 1; i >= 0; --i) {
+		if (s[i]) {
+			return i;
+		}
+	}
+
+	return -1;
+};
+
+H.spagint_is_zero = function (s, cpl)
+{
+	if (H.spagint_highbit(s) < 0) {
+		// 0x0000...0000 is always zero
+		return true;
+	} else if (cpl == 1) {
+		// 0xffff...ffff is minus zero
+		for (var i = 0; i < s.length; ++i) {
+			if (! s[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	return false;
+};
+
+H.spagint_sgn = function (s, cpl)
+{
+	if (cpl == 2 || cpl == 1) {
+		if (s[s.length - 1]) {
+			return -1;
+		}
+	}
+
+	return 1;
+};
+
+H.spagint_copy = function (s, ws)
+{
+	if (!ws) {
+		ws = s.length;
+	}
+
+	var t = [];
+	for (var i = 0; i < ws; ++i) {
+		var b = 0;
+		if (i < s.length) {
+			b = s[i];
+		}
+		t[i] = b;
+	}
+	return t;
+};
+
+// Add 1 bit size and extend signal if signed
+H.spagint_extend = function (s, cpl)
+{
+	var t = H.spagint_copy(s, s.length + 1);
+	if (cpl > 0) {
+		t[t.length - 1] = s[s.length - 1];
+	}
+	return t;
+};
+
+H.spagint_u_s_sum = function (tgt, v)
+{
+	var i, carry, unsigned_overflow, last_carry, signed_overflow;
+
+	carry = 0;
+	last_carry = 0;
+
+	for (i = 0; i < tgt.length && (carry || i < v.length); ++i) {
+		var new_bit = (tgt[i] ? 1 : 0) + (carry ? 1 : 0) + (v[i] ? 1 : 0);
+		last_carry = carry;
+		carry = (new_bit > 1) ? 1 : 0;
+		tgt[i] = new_bit % 2;
+	}
+
+	unsigned_overflow = !!carry;
+	// signed oveflow hint from http://planetcalc.com/747/
+	signed_overflow = (carry !== last_carry);
+
+	return {result: tgt,
+		carry: unsigned_overflow,
+		unsigned_overflow: unsigned_overflow,
+		signed_overflow: signed_overflow};
+};
+
+H.spagint_cpl1_to_cpl2 = function (s)
+{
+	if (s[s.length - 1]) {
+		// no problem if overflow since 0xffff is zero in cpl1
+		H.spagint_u_s_sum(s, H.spagint_make_one(s.length));
+	}
+	return s;
+};
+
+H.spagint_cpl2_to_cpl1 = function (s)
+{
+	var overflow = false;
+	if (s[s.length - 1]) {
+		H.spagint_u_s_sum(s, H.spagint_make_minus_one(2, s.length));
+		overflow = ! s[s.length - 1];
+	}
+	return {result: s, overflow: overflow};
+};
+
+H.spagint_eq = function (s, t)
+{
+	for (var i = (Math.max(s.length, t.length) - 1); i >= 0; --i) {
+		var sb = (i < s.length) ? s[i] : 0;
+		var tb = (i < t.length) ? t[i] : 0;
+		if (sb < tb) {
+			// s < t
+			return false;
+		} else if (sb > tb) {
+			// s > t
+			return false;
+		}
+	}
+	// equal
+	return true;
+};
+
+H.spagint_ge = function (s, t)
+{
+	for (var i = (Math.max(s.length, t.length) - 1); i >= 0; --i) {
+		var sb = (i < s.length) ? s[i] : 0;
+		var tb = (i < t.length) ? t[i] : 0;
+		if (sb < tb) {
+			// s < t
+			return false;
+		} else if (sb > tb) {
+			// s > t
+			return true;
+		}
+	}
+	// equal
+	return true;
+};
+
+H.spagint_abs = function (t, cpl)
+{
+	var overflow = false;
+
+	if (cpl <= 0 || H.spagint_sgn(t, cpl) > 0) {
+		// positive
+		return {result: t, overflow: overflow};
+	}
+
+	// if control gets here, value is signed AND negative
+
+	if (cpl !== 1) {
+		// downgrade to one's complement
+		H.spagint_u_s_sum(t, H.spagint_make_minus_one(2, t.length));
+		// if turned to positive, MIN_INT overflowed
+		overflow = ! t[t.length - 1];
+	}
+
+	// one's complement: get positive just inverting all bits
+	for (var i = 0; i < t.length; ++i) {
+		t[i] = t[i] ? 0 : 1;
+	}
+
+	return {result: t, overflow: overflow};
+};
+
+H.spagint_inv = function (t, cpl)
+{
+	if (H.spagint_is_zero(t)) {
+		// short circuit to avoid problems w/ overflow detection
+		return {result: t, overflow: false};
+	}
+
+	var overflow = false;
+
+	if (cpl <= 0) {
+		console.log("cannot invert int unsigned");
+		return {result: t, overflow: overflow};
+	}
+
+	// control reaches here if number is signed
+
+	// conversion into one's complement
+	for (var i = 0; i < t.length; ++i) {
+		t[i] = t[i] ? 0 : 1;
+	}
+
+	if (cpl !== 1) {
+		// promote to two's complement
+		var sign = t[t.length - 1];
+		H.spagint_u_s_sum(t, H.spagint_make_one(t.length));
+		// if number is MIN_INT, conversion overflows and 
+		// result becomes MIN_INT again (which is equal to
+		// MAX_INT + 1 if bit string is taken as unsigned.
+		// NOTE: this is a convention that this function MUST
+		// keep!
+		overflow = (sign !== t[t.length - 1]);
+	}
+
+	return {result: t, overflow: overflow};
+};
+
+H.spagint_neg = function (s, cpl)
+{
+	if (H.spagint_sgn(s, cpl) < 0) {
+		// already negative, return "as is"
+		return s;
+	}
+
+	// cannot overflow since s is positive
+	H.spagint_inv(s, cpl);
+	return s;
+};
+
+// make sure that word-size MSB contains the same
+// sign as the empirical MSB in "s"
+H.spagint_cast_sign = function (s, cpl, ws, dbl)
+{
+	if (cpl > 0) {
+		var msb = s.length - 1;
+		var ws_msb = ws * (dbl ? 2 : 1) - 1;
+		s[ws_msb] = s[msb];
+	}
+};
+
+// division core. only positive numbers and all having the same length
+H.spagint_divide = function (a, b, c)
+{
+	// Caller must provide c.length >= a and >= b
+	// add one bit for signed substraction in algorithm
+	// c can stay the same length because c <= a and
+	// a is always unsigned.
+	a = H.spagint_copy(a, c.length + 1);
+	b = H.spagint_copy(b, c.length + 1);
+
+	var bn = H.spagint_copy(b);
+	// cannot overflow because we made room just before
+	H.spagint_inv(bn, 2);
+	var one = H.spagint_make_one(a.length);
+
+	while (H.spagint_ge(a, b) && ! H.spagint_is_zero(a) && ! H.spagint_is_zero(b)) {
+		/*
+		if (dbl) {
+			Sleep(1000);
+		}
+		*/
+		var order = H.spagint_highbit(a) - H.spagint_highbit(b) - 1;
+		// Examples:
+		// a = 100, b = 11, 2*b = 110 > a (cannot use shortcut)
+		// a = 1000, b = 11, 2*b = 110 < a (may use shortcut)
+		// a = 10000, b = 11, 4*b = 1100 < a (may use shortcut)
+		// a = 1000000, b = 11, 16*b = 110000 < a (may use shortcut)
+
+		// console.log("a " + a);
+		// console.log("b " + b);
+		// console.log("c " + c);
+		if (order <= 0) {
+			// naive algorithm; c++ and a -= b while a >= b
+			H.spagint_u_s_sum(c, one);
+			H.spagint_u_s_sum(a, bn);
+		} else {
+			// a > 2b
+			// c += 2^order; a -= b * 2^order
+			var power_2 = H.spagint_make_power2(a.length, order);
+			var bto = H.spagint_make_zero(a.length);
+			H.spagint_multiply(b, power_2, bto);
+			// cannot overflow because bto > 0
+			H.spagint_inv(bto, 2);
+			H.spagint_u_s_sum(c, power_2);
+			H.spagint_u_s_sum(a, bto);
+		}
+		// console.log("a' " + a);
+		// console.log("b' " + b);
+		// console.log("c' " + c);
+	}
+
+	return H.spagint_copy(a, c.length);
+};
+
+H.integer_divide = function (a, b, cpl, ws, dbl)
+{
+	a = H.make_spaghetti(a, ws, dbl);
+	b = H.make_spaghetti(b, ws, false);
+
+	if (H.spagint_is_zero(b)) {
+		// avoid the case of a=0
+		return {result: [H.undo_spaghetti(H.spagint_make_zero(ws), ws, false),
+			         H.undo_spaghetti(H.spagint_make_zero(ws), ws, false)],
+			carry: false, overflow: true};
+	}
+
+	var overflow = false;
+
+	// console.log("divide ----------------------------");
+	// console.log(" aj " + a);
+	// console.log(" bj " + b);
+
+	var sgn = H.spagint_sgn(a, cpl) * H.spagint_sgn(b, cpl);
+	var sgna = H.spagint_sgn(a, cpl);
+
+	// add 1 bit space to handle case a|b == MIN_INT
+	a = H.spagint_extend(a, cpl);
+	b = H.spagint_extend(b, cpl);
+	// so these can't overflow
+	H.spagint_abs(a, cpl);
+	H.spagint_abs(b, cpl);
+	b = H.spagint_copy(b, a.length);
+
+	var c = H.spagint_make_zero(a.length);
+
+	a = H.spagint_divide(a, b, c);
+
+	// this test handles both possible overflow cases:
+	// a) double mode, quotient does not fit in 1 word
+	// b) normal mode, 2's complement, MIN_INT / -1 = MAX_INT + 1
+	var magnitude = H.spagint_highbit(c);
+	if (cpl <= 0) {
+		overflow = magnitude >= ws;
+	} else if (cpl == 1) {
+		overflow = magnitude >= (ws - 1);
+	} else {
+		overflow = (magnitude >= (ws - 1) &&
+				(sgn >= 0 ||
+				 ! H.spagint_is_MININT_2(c, ws)));
+	}
+
+	// console.log("divide ----------------------------");
+	// console.log("ai " + a);
+	// console.log("bi " + b);
+	// console.log("ci " + c);
+
+	if (sgn < 0) {
+		H.spagint_neg(c, cpl);
+	}
+	if (sgna < 0) {
+		// dividend became the remainder
+		// remainder inherits the signal from dividend
+		// remainder cannot overflow because it is always smaller than divisor
+		H.spagint_neg(a, cpl);
+	}
+
+	if (overflow) {
+		H.spagint_cast_sign(c, cpl, ws, false);
+	}
+
+	var t = H.undo_spaghetti(c, ws, false);
+	var has_remainder = ! H.spagint_is_zero(a, 0);
+	var trmd = H.undo_spaghetti(a, ws, false);
+	var res = [t, trmd];
+
+	return {result: res, overflow: overflow, carry: has_remainder};
+};
+
+H.spagint_make_zero = function (ws)
+{
+	var t = [];
+	for (var i = 0; i < ws; ++i) {
+		t[i] = 0;
+	}
+	return t;
+};
+
+H.spagint_make_one = function (ws)
+{
+	var t = H.spagint_make_zero(ws);
+	t[0] = 1;
+	return t;
+};
+
+H.spagint_make_power2 = function (ws, exponent)
+{
+	var t = H.spagint_make_zero(ws);
+	t[exponent] = 1;
+	return t;
+};
+
+H.spagint_make_minus_one = function (cpl, ws)
+{
+	var t = H.spagint_make_one(ws);
+	// cannot overflow because ws > 1
+	H.spagint_inv(t, cpl);
+	return t;
+};
+
+H.spagint_make_MIN_INT_2 = function (ws)
+{	
+	var t = H.spagint_make_zero(ws);
+	t[t.length - 1] = 1;
+	return t;
+};
+
+/*
+H.spagint_make_MAX_INT_2 = function (ws)
+{	
+	var t = H.spagint_make_minus_one(2, ws);
+	t[t.length - 1] = 0;
+	return t;
+};
+*/
+
+H.spagint_is_MININT_2 = function (n, ws)
+{
+	// test if (unsigned) n == (unsigned) (MIN_INT for given ws)
+	var min_int = H.spagint_make_MIN_INT_2(ws); // 128 in 8 bits unsigned
+	return H.spagint_eq(n, min_int);
+};
+
+// core of multiplication (handles positive numbers only)
+H.spagint_multiply = function (a, b, c)
+{
+	a = H.spagint_copy(a, c.length);
+	b = H.spagint_copy(b, c.length);
+
+	while (! H.spagint_is_zero(a, 0)) {
+		// console.log("a  " + a);
+		// console.log("b  " + b);
+		// console.log("c  " + c);
+		if (! a[0]) {
+			// even a; try make it odd (a/2)*(b*2)
+			H.spagint_shr(a);
+			H.spagint_shl(b);
+		} else {
+			// odd a; c += b, a -= 1
+			var res = H.spagint_u_s_sum(c, b);
+			a[0] = 0;
+		}
+		// console.log("c' " + c);
+	}
+
+	// console.log("cf " + c);
+	return c;
+};
+
+H.integer_multiply = function (a, b, cpl, ws, dbl)
+{
+	a = H.make_spaghetti(a, ws, false);
+	b = H.make_spaghetti(b, ws, false);
+	// console.log("a' " + a);
+	// console.log("b' " + b);
+	var c = H.spagint_make_zero(ws * 2);
+	var sgn = H.spagint_sgn(a, cpl) * H.spagint_sgn(b, cpl);
+	var overflow = false;
+
+	// add 1 bit space
+	a = H.spagint_extend(a, cpl);
+	b = H.spagint_extend(b, cpl);
+	// so these can't overflow if a, b == MIN_INT
+	H.spagint_abs(a, cpl);
+	H.spagint_abs(b, cpl);
+
+	// console.log("ultiply ----------------------------");
+	var res = H.spagint_multiply(a, b, c);
+	// console.log("multiply ----- " + c);
+
+	if (!dbl) {
+		var magnitude = H.spagint_highbit(c);
+		if (cpl <= 0) {
+			overflow = magnitude >= ws;
+		} else if (cpl == 1) {
+			overflow = magnitude >= (ws - 1);
+		} else {
+			// e.g. for 8 bits signed, if magnitude is 8 > 7,
+			// it is overflow only if result is positive, or
+			// result is exactly MIN_INT (-MIN_INT at this point)
+			overflow = (magnitude >= (ws - 1) &&
+					(sgn >= 0 ||
+					 ! H.spagint_is_MININT_2(c, ws)));
+		}
+	}
+
+	if (sgn < 0) {
+		H.spagint_neg(c, cpl);
+	}
+
+	if (overflow) {
+		H.spagint_cast_sign(c, cpl, ws, dbl);
+	}
+
+	var t = H.undo_spaghetti(c, ws, dbl);
+
+	// multiplication resets carry
+	return {result: t, overflow: overflow, carry: false};
+};
+
+H.integer_plus = function (a, b, cpl, ws)
+{
+	a = H.make_spaghetti(a, ws, false);
+	b = H.make_spaghetti(b, ws, false);
+	var c = H.spagint_make_zero(ws);
+	var overflow = false;
+
+	// console.log("plus a " + a);
+	// console.log("plus b " + b);
+
+	if (cpl === 1) {
+		a = H.spagint_cpl1_to_cpl2(a, ws);
+		b = H.spagint_cpl1_to_cpl2(b, ws);
+	}
+
+	H.spagint_u_s_sum(c, a);
+	var res = H.spagint_u_s_sum(c, b);
+
+	if (cpl <= 0) {
+		overflow = res.unsigned_overflow;
+	} else {
+		overflow = res.signed_overflow;
+	}
+
+	// console.log("plus a' " + a);
+	// console.log("plus b' " + b);
+	// console.log("plus c " + c);
+
+	if (cpl === 1) {
+		if (H.spagint_cpl2_to_cpl1(c).overflow) {
+			overflow = true;
+		}
+	}
+
+	if (overflow) {
+		H.spagint_cast_sign(c, cpl, ws, false);
+	}
+
+	// console.log("plus c' " + c);
+
+	var t = H.undo_spaghetti(c, ws, false);
+
+	// console.log("plus r " + t.r + " " + t.h);
+
+	return {result: t, overflow: overflow, carry: res.carry};
+};
+
+H.integer_minus = function (a, b, cpl, ws)
+{
+	var iws = ws;
+	if (cpl <= 0) {
+		// make room for signal bit since we implement
+		// subraction using signed summation of a+(-b)
+		iws += 1;
+	}
+	a = H.make_spaghetti(a, iws, false);
+	b = H.make_spaghetti(b, iws, false);
+	var c = H.spagint_make_zero(iws);
+	var overflow = false;
+	var borrow = false;
+
+	// console.log("minus a " + a);
+	// console.log("minus b " + b);
+
+	if (cpl === 1) {
+		a = H.spagint_cpl1_to_cpl2(a, iws);
+		b = H.spagint_cpl1_to_cpl2(b, iws);
+	}
+
+	// If (unsigned) b > (unsigned) a, there is borrow.
+	// Or, there *would be* borrow in HP-16C, which does not
+	// use a+(-b) technique.
+	borrow = ! H.spagint_ge(a, b);
+
+	// console.log("minus a " + a);
+	// console.log("minus b " + b);
+
+	if (H.spagint_inv(b, 2).overflow) {
+		// b == MIN_INT and cpl == 2
+		// x - MIN_INT always overflows because the result
+		// becomes x + MAX_INT + 1
+		overflow = true;
+		// proceed with operation since HP-16C shows the
+		// corpse of the calculation (lowest bits).
+	}
+
+	// console.log("minus B " + b);
+
+	// c = a + (-b)
+	H.spagint_u_s_sum(c, a);
+	var res = H.spagint_u_s_sum(c, b);
+
+	overflow = overflow || res.signed_overflow;
+	if (cpl <= 0) {
+		if (H.spagint_sgn(c) < 0) {
+			// result < 0 in unsigned mode, underflow
+			overflow = true;
+		}
+	}
+
+	// console.log("minus c " + c);
+
+	if (cpl === 1) {
+		if (H.spagint_cpl2_to_cpl1(c).overflow) {
+			overflow = true;
+		}
+	}
+
+	if (overflow) {
+		H.spagint_cast_sign(c, cpl, ws, false);
+	}
+
+	// console.log("minus C " + c);
+
+	// cast from iws to ws does not cause problems because
+	// a) ws = iws in signed mode
+	// b) value is meaningless if negative (high bit 1)
+	//    in unsigned mode, and high bit = 0 if positive.
+	var t = H.undo_spaghetti(c, ws, false);
+
+	// console.log("tuple " + t.r + " " + t.h);
+
+	return {result: t, overflow: overflow, carry: borrow};
+};
+
+// assumes "a" is positive
+// algorithm from "Hacker's Delight", p.205
+H.integer_sqrt = function (a, cpl, ws)
+{
+	a = H.make_spaghetti(a, ws, false);
+
+	var iws = ws;
+
+	if (H.spagint_sgn(a, cpl) < 0) {
+		// avoid the case of a<0
+		return {result: H.undo_spaghetti(H.spagint_make_zero(ws), ws, false),
+			carry: false, overflow: true};
+	}
+
+	if (H.spagint_is_zero(a)) {
+		// avoid the case of a=0
+		return {result: H.undo_spaghetti(H.spagint_make_zero(ws), ws, false),
+			carry: false, overflow: false};
+	}
+
+	if (iws < 4) {
+		iws = 4;
+		a = H.spagint_copy(a, 4);
+	}
+
+	// get the number of significant bits in a
+	var order = H.spagint_highbit(a);
+	// first estimate is a bit above [a >> (bits / 2)]
+	var two = H.spagint_make_power2(a.length, 1);
+	var g0 = H.spagint_make_power2(a.length, 1 + Math.floor(order / 2));
+	var g1 = H.spagint_make_zero(a.length);
+	H.spagint_divide(a, g0, g1); // g1 = a / g0
+	H.spagint_u_s_sum(g1, g0);   // g1 = g0 + a / g0
+	H.spagint_shr(g1);           // g1 = (g0 + a / g0) / 2
+
+	// console.log("sqrt ---------");
+	// console.log("g0'  " + g0);
+	// console.log("g1'  " + g1);
+
+	while (! H.spagint_ge(g1, g0)) { // while g1 < g0
+		// console.log("base " + a);
+		g0 = g1;
+		g1 = H.spagint_make_zero(a.length);
+		H.spagint_divide(a, g0, g1); // g1 = a / g0
+		H.spagint_u_s_sum(g1, g0);   // g1 = g0 + a / g0
+		H.spagint_shr(g1);           // g1 = (g0 + a / g0) / 2
+		// console.log("g0   " + g0);
+		// console.log("g1   " + g1);
+		// console.log("---");
+		// Sleep(1000);
+	}	
+
+	var sq = H.spagint_make_zero(a.length);
+	H.spagint_multiply(g0, g0, sq); // cannot overflow
+	var carry = ! H.spagint_ge(sq, a); // isqrt(a)^2 < a
+	// console.log("" + sq + " < " + a);
+
+	return {result: H.undo_spaghetti(g0, ws, false), carry: carry, overflow: false};
+};
+
+H.integer_inv = function (a, cpl, ws)
+{
+	var overflow = false;
+	var icpl = cpl;
+
+	if (cpl === 0) {
+		icpl = 2;
+		overflow = true;
+	}
+
+	a = H.make_spaghetti(a, ws, false);
+	var res = H.spagint_inv(a, icpl, ws);
+
+	a = H.undo_spaghetti(res.result, ws, false);
+
+	return {result: a, overflow: (overflow || res.overflow)};
+};
+
+H.integer_abs = function (a, cpl, ws)
+{
+	var overflow = false;
+	var icpl = cpl;
+
+	a = H.make_spaghetti(a, ws, false);
+	var res = H.spagint_abs(a, icpl, ws);
+	a = H.undo_spaghetti(res.result, ws, false);
+
+	return {result: a, overflow: (overflow || res.overflow)};
+};
+
+H.integer_eq = function (a, b, cpl, ws)
+{
+	return ((a.r === b.r) && (a.h === b.h));
+};
+
+H.integer_lt = function (a, b, cpl, ws)
+{
+	a = [a.h, a.r];
+	b = [b.h, b.r];
+	a = H.make_spaghetti(a, ws, false);
+	b = H.make_spaghetti(b, ws, false);
+	var sgna = H.spagint_sgn(a, cpl);
+	var sgnb = H.spagint_sgn(b, cpl);
+	var res = false;
+
+	if (sgna > sgnb) {
+		// a >= 0 > b so a > b
+		res = false;
+	} else if (sgna < sgnb) {
+		// a < 0 <= b so a < b
+		res = true;
+	} else {
+		// a, b have the same signal
+		// a, b negative: // "-2 < -1" is "65534 < 65535"
+		// "a < b" is  "not a >= b"
+		res = ! H.spagint_ge(a, b);
+	}
+	return res;
+};
+
+H.integer_le = function (a, b, cpl, ws)
+{
+	return H.integer_eq(a, b, cpl, ws) || H.integer_lt(a, b, cpl, ws);
+};
+
+
+// MODIFIED VERSION OF: https://github.com/cslarsen/mersenne-twister
+
+/*
+  I've wrapped Makoto Matsumoto and Takuji Nishimura's code in a namespace
+  so it's better encapsulated. Now you can have multiple random number generators
+  and they won't stomp all over eachother's state.
+  
+  If you want to use this as a substitute for Math.random(), use the random()
+  method like so:
+  
+  var m = new MersenneTwister();
+  var randomNumber = m.random();
+  
+  You can also call the other genrand_{foo}() methods on the instance.
+
+  If you want to use a specific seed in order to get a repeatable random
+  sequence, pass an integer into the constructor:
+
+  var m = new MersenneTwister(123);
+
+  and that will always produce the same random sequence.
+
+  Sean McCullough (banksean@gmail.com)
+*/
+
+/* 
+   A C-program for MT19937, with initialization improved 2002/1/26.
+   Coded by Takuji Nishimura and Makoto Matsumoto.
+ 
+   Before using, initialize the state by using init_genrand(seed)  
+   or init_by_array(init_key, key_length).
+ 
+   Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
+   All rights reserved.                          
+ 
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+ 
+     1. Redistributions of source code must retain the above copyright
+        notice, this list of conditions and the following disclaimer.
+ 
+     2. Redistributions in binary form must reproduce the above copyright
+        notice, this list of conditions and the following disclaimer in the
+        documentation and/or other materials provided with the distribution.
+ 
+     3. The names of its contributors may not be used to endorse or promote 
+        products derived from this software without specific prior written 
+        permission.
+ 
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ 
+   Any feedback is very welcome.
+   http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
+   email: m-mat @ math.sci.hiroshima-u.ac.jp (remove space)
+*/
+
+/*jslint bitwise: false */
+
+H.Prng = function (seed)
+{
+	if (seed === undefined) {
+		seed = 1;
+	}
+	while (Math.abs(seed) > 0x80000000) {
+		// move significant digits to 32-bit realm
+		seed /= 1.987654321;
+	}
+	while (Math.abs(seed) < 0x40000000) {
+		// move decimals to integer realm since bitwise manipulation is employed
+		seed *= 1.9123456789;
+	}
+
+	/* Period parameters */  
+	this.N = 624;
+	this.M = 397;
+	this.MMA = 0x9908b0df;   /* constant vector a */
+	this.UMA = 0x80000000; /* most significant w-r bits */
+	this.LMA = 0x7fffffff; /* least significant r bits */
+ 
+	this.mt = [];          /* the array for the state vector */
+	this.mti = this.N + 1; /* mti==N+1 means mt[N] is not initialized */
+
+	this.init(seed);
+};
+ 
+/* initializes mt[N] with a seed */
+H.Prng.prototype.init = function (seed)
+{
+	this.mt[0] = seed >>> 0;
+	for (this.mti = 1; this.mti < this.N; this.mti++) {
+		var s = this.mt[this.mti - 1] ^ (this.mt[this.mti - 1] >>> 30);
+		this.mt[this.mti] = (((((s & 0xffff0000) >>> 16) * 1812433253) << 16) + 
+			(s & 0x0000ffff) * 1812433253) + this.mti;
+		/* See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier. */
+		/* In the previous versions, MSBs of the seed affect   */
+		/* only MSBs of the array mt[].                        */
+		/* 2002/01/09 modified by Makoto Matsumoto             */
+		this.mt[this.mti] >>>= 0;
+		/* for >32 bit machines */
+	}
+};
+ 
+/* generates a random number on [0,0xffffffff]-interval */
+H.Prng.prototype.gen32 = function ()
+{
+	var y;
+	var mag01 = [0x0, this.MMA];
+	/* mag01[x] = x * MMA  for x=0,1 */
+
+	if (this.mti >= this.N) { /* generate N words at one time */
+		var kk;
+
+		if (this.mti === this.N + 1) {  /* if init() has not been called, */
+			this.init(5489); /* a default initial seed is used */
+		}
+
+		for (kk = 0; kk < this.N - this.M; kk++) {
+			y = (this.mt[kk] & this.UMA) | (this.mt[kk + 1] & this.LMA);
+			this.mt[kk] = this.mt[kk + this.M] ^ (y >>> 1) ^ mag01[y & 0x1];
+		}
+
+		for (; kk < this.N - 1; kk++) {
+			y = (this.mt[kk] & this.UMA) | (this.mt[kk + 1] & this.LMA);
+			this.mt[kk] = this.mt[kk + (this.M - this.N)] ^ (y >>> 1) ^ mag01[y & 0x1];
+		}
+
+		y = (this.mt[this.N - 1] & this.UMA) | (this.mt[0] & this.LMA);
+		this.mt[this.N - 1] = this.mt[this.M - 1] ^ (y >>> 1) ^ mag01[y & 0x1];
+
+		this.mti = 0;
+	}
+
+	y = this.mt[this.mti++];
+
+	/* Tempering */
+	y ^= (y >>> 11);
+	y ^= (y << 7) & 0x9d2c5680;
+	y ^= (y << 15) & 0xefc60000;
+	y ^= (y >>> 18);
+
+	return y >>> 0;
+};
+ 
+/* generates a random number on [0,1) with 53-bit resolution*/
+H.Prng.prototype.random = function ()
+{ 
+	var a = this.gen32() >>> 5;
+	var b = this.gen32() >>> 6; 
+	return (a * 67108864.0 + b) * (1.0 / 9007199254740992.0); 
+};
+
+/* These real versions are due to Isaku Wada, 2002/01/09 added */
+H.sve = 9.8;
+H.kve = "2b51aaaa668831dbf400dc64fa9fb58e";
+H.kve2 = "17089c710737e5363557d62b7cded41b9a3a4dec";
 /*jslint white: true, undef: true, nomen: true, regexp: true, strict: true, browser: true, bitwise: true */
 
 /*global H */
 
-// TODO unit test with key sequences etc.
+// FIXM15 finish implement 15c
 
 "use strict";
 
 function Hp12c_pgrm()
 {
+	this.constructor();
+}
+
+Hp12c_pgrm.prototype.constructor = function ()
+{
+	if (H.type === "12c" || H.type === "12c-platinum") {
+		throw "Pgrm constructor not appropriate to 12c";
+	}
+
 	this.exec_special = [];
 	this.exec_special[H.GTO] = [2, 1, this.p_exec_gto];
 	this.exec_special[H.GSB] = [2, 1, this.p_exec_gosub];
 	this.exec_special[H.GG * 100 + H.GSB] = [2, 0, this.p_exec_rtn];
 	this.exec_special[H.dispatcher.KEY_RS] = [1, 0, this.p_exec_rs];
+
+	this.label_count = 0;
 
 	this.type_special = [];
 	var t = this.type_special;
@@ -4771,8 +8235,15 @@ function Hp12c_pgrm()
 	t[H.GTO] = this.p_type_gto_begin;
 	t[H.GSB] = this.p_type_gosub_begin;
 	t[H.LBL] = this.p_type_label_begin;
-	t[H.GG * 100 + H.RCL] = this.p_type_mem_info;
-	t[H.FF * 100 + H.RCL] = this.p_type_user;
+
+	if (H.type === "11c" || H.type === "15c") {
+		t[H.GG * 100 + H.RCL] = this.p_type_mem_info;
+		t[H.FF * 100 + H.RCL] = this.p_type_user;
+		this.label_count = 15;
+	} else if (H.type === "16c") {
+		t[H.FF * 100 + 0] = this.p_type_mem_info;
+		this.label_count = 16;
+	}
 
 	for (var n = 0; n <= 9; ++n) {
 		t[H.GTO_MOVE * 100 + n] = this.p_type_gto_move_n;
@@ -4781,7 +8252,7 @@ function Hp12c_pgrm()
 		t[H.LBL * 100 + n] = this.p_type_label_n;
 	}
 
-	for (n = 11; n <= 15; ++n) {
+	for (n = 11; n <= this.label_count; ++n) {
 		t[H.GTO * 100 + n] = this.p_type_gto_n;
 		t[H.GSB * 100 + n] = this.p_type_gosub_n;
 		t[H.LBL * 100 + n] = this.p_type_label_n;
@@ -4791,7 +8262,7 @@ function Hp12c_pgrm()
 	t[H.GSB * 100 + H.KEY_INDEX] = this.p_type_gosub_n;
 
 	this.execution_delay = 80;
-}
+};
 
 Hp12c_pgrm.p_encode_key = function (key, addr)
 {
@@ -4840,6 +8311,20 @@ Hp12c_pgrm.p_encode_instruction = function (modifier, key, addr)
 	return Hp12c_pgrm.p_encode_modifier(modifier) +
 	       Hp12c_pgrm.p_encode_key(key, addr);
 
+};
+
+Hp12c_pgrm.prototype.hex_opcode = function (instr)
+{
+	var op = instr.split(".");
+
+	for (var i = 0; i < op.length; ++i) {
+		var key = parseInt(op[i], 10);
+		if (key >= 11 && key <= 16) {
+			op[i] = (key - 1).toString(16);
+		}
+	}
+
+	return op.join(".");
 };
 
 Hp12c_pgrm.prototype.p_del = function (modifier, key, addr)
@@ -4901,7 +8386,8 @@ Hp12c_pgrm.prototype.p_gto = function (label)
 	var is_label = true;
 	var new_ip = label;
 
-	if ((label >= 0 && label <= 9) || (label >= 11 && label <= 15)) {
+	if ((label >= 0 && label <= 9) ||
+		(label >= 11 && label <= this.label_count)) {
 		// hard-coded label
 	} else if (label == H.KEY_INDEX) {
 		// index-based gto
@@ -4912,7 +8398,7 @@ Hp12c_pgrm.prototype.p_gto = function (label)
 				return false;
 			}
 			if (new_ip >= 10) {
-				// put in 11..15 range (= letter keys)
+				// put in 11..count range (= letter keys)
 				new_ip += 1;
 			}
 		} else {
@@ -5040,6 +8526,7 @@ Hp12c_pgrm.prototype.find_label = function (label)
 	var template = Hp12c_pgrm.p_encode_instruction(H.LBL, label, 0);
 	var i;
 
+	// two-phase search to handle repeated labels correctly
 	for (i = H.machine.ip + 1; i <= H.machine.program_limit(); ++i) {
 		if (H.machine.ram[i] == template) {
 			return i;
@@ -5050,7 +8537,6 @@ Hp12c_pgrm.prototype.find_label = function (label)
 			return i;
 		}
 	}
-
 
 	return 0;
 };
@@ -5065,7 +8551,7 @@ Hp12c_pgrm.prototype.find_label_or_index = function (label_or_index)
 				return 0;
 			}
 			if (label >= 10) {
-				// put in 11..15 range (= letter keys)
+				// put in 11..count range (= letter keys)
 				label += 1;
 			}
 			return this.find_label(label);
@@ -5124,6 +8610,20 @@ Hp12c_pgrm.prototype.p_execute = function ()
 		return;
 	}
 
+	if (H.machine.ip > H.machine.program_limit()) {
+		// top of RAM
+		// in 12c, pop_stack() always fails because GSB is never called
+		this.pop_stack();
+
+		if (H.machine.ip <= 0) {
+			this.clean_stack();
+			this.stop();
+			return;
+		} else {
+			window.console.log("implicit RTN to " + H.machine.ip);
+		}
+	}
+
 	if (H.machine.ip <= 0) {
 		H.machine.ip = 1;
 		H.machine.display_pgrm();
@@ -5131,17 +8631,18 @@ Hp12c_pgrm.prototype.p_execute = function ()
 
 	var op_txt = H.machine.ram[H.machine.ip];
 
-	if (op_txt == H.STOP_INSTRUCTION || op_txt === "") {
-		// bumped end of program
-		H.machine.ip = 0;
-		this.stop();
-		return;
+	if (H.type !== "12c" && H.type !== "12c-platinum") {
+		if (op_txt == H.STOP_INSTRUCTION || op_txt === "") {
+			// bumped soft end of program (GTO 00)
+			H.machine.ip = 0;
+			this.stop();
+			return;
+		}
 	}
 
 	var op = op_txt.split(".");
 
-	// TODO remove someday?
-	window.console.log("Executing " + op_txt);
+	window.console.log("Executing " + op_txt + " x=" + H.machine.x);
 
 	var e;
 
@@ -5165,14 +8666,6 @@ Hp12c_pgrm.prototype.p_execute = function ()
 	}
 
 	// instruction execution aftermath
-
-	if (H.machine.ip > H.machine.program_limit()) {
-		// top of RAM
-		this.pop_stack();
-		if (H.machine.ip > 0) {
-			window.console.log("implicit RTN to " + H.machine.ip);
-		}
-	}
 
 	if (H.machine.ip <= 0) {
 		// GTO 00 or equivalent
@@ -5209,7 +8702,7 @@ Hp12c_pgrm.prototype.p_run = function ()
 Hp12c_pgrm.prototype.rs = function ()
 {
 	if (H.machine.program_mode == H.INTERACTIVE) {
-		H.machine.display_result();
+		H.machine.display_result_s(false, false);
 		this.p_run();
 	} else {
 		this.stop();
@@ -5225,7 +8718,7 @@ Hp12c_pgrm.prototype.p_type_pr = function (key)
 	H.machine.ip = 0;
 	H.machine.display_pgrm();
 	H.machine.display_modifier();
-	H.machine.display_result();
+	H.machine.display_result_s(false, false);
 };
 
 Hp12c_pgrm.prototype.p_type_sst = function (key)
@@ -5338,6 +8831,9 @@ Hp12c_pgrm.prototype.p_type_gto_move_begin = function (key)
 Hp12c_pgrm.prototype.p_type_gto_begin = function (key)
 {
 	H.machine.set_modifier(H.GTO, 1);
+	if (H.type === "12c" || H.type === "12c-platinum") {
+		H.machine.gtoxx = "";
+	}
 	H.machine.display_program_opcode();
 	return true;
 };
@@ -5372,29 +8868,6 @@ Hp12c_pgrm.prototype.type = function (key)
 	// non-special, non-modifier
 
 	// USER already handled by dispatcher, even for pgrm mode
-	/*
-	var f_mod = H.dispatcher.find_function(key, 1, 1);
-
-	if (key >= 11 && key <= 15) {
-		// USER handling: USER xor F
-		if (H.machine.user) {
-			if (H.machine.modifier == H.FF ||
-			    H.machine.modifier == H.STO_FF) {
-				// revert to default key
-				H.machine.modifier = 0;
-				console.log("bla");
-			} else if (H.machine.modifier === 0) {
-				// promote key
-				H.machine.modifier = H.FF;
-				console.log("ble");
-			} else if (! f_mod) {
-				// invalid modifier for this key, promote
-				H.machine.modifier = H.FF;
-				console.log("bli");
-			}
-		}
-	}
-	*/
 
 	var f = H.dispatcher.find_function(key, 1, 0);
 
@@ -5416,9 +8889,16 @@ Hp12c_pgrm.prototype.type = function (key)
 Hp12c_pgrm.prototype.stop = function ()
 {
 	H.machine.program_mode = H.INTERACTIVE;
+	if (H.machine.ip > H.machine.program_limit()) {
+		H.machine.ip = 0;
+	}
 	H.machine.display_pgrm();
 	if (! H.machine.error_in_display) {
-		H.machine.display_result();
+		if (H.type === "16c") {
+			H.machine.display_result_s(false, true);
+		} else {
+			H.machine.display_result();
+		}
 	}
 };
 
@@ -5440,7 +8920,7 @@ Hp12c_pgrm.prototype.bst = function ()
 		--H.machine.ip;
 	}
 	H.machine.display_program_opcode();
-	H.machine.cli();
+	H.machine.cli("bst");
 
 	window.setTimeout(function () {
 		H.machine.prog_bst_after();
@@ -5455,7 +8935,11 @@ Hp12c_pgrm.prototype.gto = function (label)
 		return;
 	}
 
-	H.machine.display_result();
+	if (H.type === "16c") {
+		H.machine.display_result_s(false, true);
+	} else {
+		H.machine.display_result();
+	}
 };
 
 Hp12c_pgrm.prototype.label = function (label)
@@ -5466,15 +8950,23 @@ Hp12c_pgrm.prototype.label = function (label)
 Hp12c_pgrm.prototype.gosub = function (label)
 {
 	var new_ip = this.find_label_or_index(label);
-
+	
 	if (! new_ip) {
 		H.machine.display_error(H.ERROR_IP);
 		return;
 	}
 
 	this.clean_stack();
-	this.push_stack(new_ip);
-	H.machine.display_result();
+	// this made execution to continue from current IP
+	// which is certainly not desirable
+	// this.push_stack(new_ip);
+	H.machine.ip = new_ip;
+
+	if (H.type === "16c") {
+		H.machine.display_result_s(false, true);
+	} else {
+		H.machine.display_result();
+	}
 	this.p_run();
 };
 
@@ -5500,6 +8992,53 @@ Hp12c_pgrm.prototype.rtn = function (label)
 {
 	// does not unwind stack in interactive mode
 	H.machine.ip = 0;
+};
+
+Hp12c_pgrm.prototype.dis_table = null;
+
+Hp12c_pgrm.prototype.generate_dis_table = function ()
+{
+	var K = H.dispatcher.functions;
+	var dmap = {};
+	this.dis_table = dmap;
+
+	for (var key in K) {
+		if (K.hasOwnProperty(key)) {
+			for (var modifier in K[key]) {
+				if (K[key].hasOwnProperty(modifier)) {
+					var closure = K[key][modifier];
+					if (! closure.asm) {
+						continue;
+					}
+					var is_addr = false;
+					var mnemonic = closure.asm.toUpperCase();
+					var opcode = Hp12c_pgrm.p_encode_instruction(parseInt(modifier, 10),
+											parseInt(key, 10),
+											is_addr);
+					dmap[opcode] = mnemonic; 
+				}
+			}
+		}
+	}
+};
+
+Hp12c_pgrm.prototype.disassemble = function (opcode)
+{
+	if (! this.dis_table) {
+		this.generate_dis_table();
+	}
+
+	if (H.type === "12c" || H.type === "12c-platinum") {
+		if (opcode.substr(0, 6) === "43.33.") {
+			return "GTO " + opcode.substr(6);
+		}
+	}
+
+	if (!this.dis_table[opcode]) {
+		return "???";
+	}
+
+	return this.dis_table[opcode];
 };
 /* HP-12C emulator 
  * Copyright (c) 2011 EPx.com.br.
@@ -5727,7 +9266,7 @@ Hp12c_storage.prototype.recover_memory2 = function (target, sserial)
 		}
 	}
 
-	if (H.type != "11c") {
+	if (H.type === "12c" || H.type === "12c-platinum") {
 		return;
 	}
 
@@ -5776,7 +9315,9 @@ function Init_hp12c()
 {
 	H.display = new Hp12c_display();
 	H.keyboard = new Hp12c_keyboard();
-	H.debug = new Hp12c_debug(H.display.format_result);
+	H.debug = new Hp12c_debug(function (t) {
+		return H.display.format_result_tuple(t);
+	});
 	H.machine = new Hp12c_machine();
 	H.dispatcher = new Hp12c_dispatcher();
 	H.pgrm = new Hp12c_pgrm();
@@ -5785,7 +9326,7 @@ function Init_hp12c()
 	H.machine.init();
 	H.storage.load();
 	H.machine.display_all();
-	H.machine.sti();
+	H.machine.sti("init");
 
 	window.onunload = Close_hp12c;
 	window.beforenunload = Close_hp12c;

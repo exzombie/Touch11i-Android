@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<manifest android:versionCode="110" android:versionName="1.1" package="br.com.epx.andro11c" xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
+<manifest android:versionCode="120" android:versionName="1.2" package="br.com.epx.andro11c" xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
     <uses-sdk android:minSdkVersion="7" android:targetSdkVersion="10"/>
     <!-- Problem with higher SDK levels: menu button disappears! -->
     <uses-permission android:name="android.permission.VIBRATE"/>
