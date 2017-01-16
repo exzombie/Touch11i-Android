@@ -1,5 +1,5 @@
-# Andro11C, source code 
+# Touch 11i, source code 
 
-This is the source code of the Andro11C calculator (https://epxx.co/ctb/andro11c).
+This is the source code of the Touch 11i calculator (https://epxx.co/ctb/touch11i).
 
-![Screenshot](https://raw.githubusercontent.com/elvis-epx/Andro11C/master/img/sc.jpg)
+![Screenshot](https://raw.githubusercontent.com/elvis-epx/Touch11i-Android/master/img/sc.jpg)
